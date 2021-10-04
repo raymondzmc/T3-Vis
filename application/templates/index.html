@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+
+{% macro table(content, headings) %}
+    <table class="table table-hover">
+      <thead class="thead-dark">
+        <tr>
+            {% for header in headings %}
+            <th scope="col">{{ header }}</th>
+            {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in content %}
+        <tr class="content" id="content-{{ row[0] }}">
+            {% for cell in row %}
+            <td>{{ cell }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+{% endmacro %}
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Visualization Analytics for Fine-tuning Pre-trained Transformers</title>
+<!--     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-nice-select/1.1.0/js/jquery.nice-select.min.js"></script>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.bundle.min.js" integrity="sha384-6khuMg9gaYr5AxOqhkVIODVIvm9ynTT5J4V1cfthmT+emCG6yVmEZsRHdxlotUnm" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.js"></script> -->
+
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.12.0/d3.js"></script> -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.10.0/css/all.css" integrity="sha384-AYmEC3Yw5cVb3ZcuHtOA93w35dYTsvhLPVnYs9eStHfGJvOvKxVfELGroGkvsg+p" crossorigin="anonymous"/>
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename="css/style.css") }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename="css/loader.css") }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename="css/vanillaSelectBox.css") }}">
+
+
+<!--     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-nice-select/1.1.0/css/nice-select.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dc/1.6.0/dc.css"> -->
+</head>
+
+<body>
+    <div class="loading" id="loader">Loading&#8230;</div>
+    <div class="container-fluid">
+
+        <!-- Top banner -->
+        <div class="row" id="banner"> 
+            <div class="col-8" id="title"> 
+                <h1> Visual Analytics for Fine-tuning Pre-trained Transformer Models</h1>
+            </div>
+            <div class="col-4" id="icons">
+                <a class="btn btn-primary input-block-level" role="button" href="https://www.overleaf.com/2812517959qqmkrswgzcsv">
+                    <span class="fas fa-file-pdf fa-3x"></span>
+                </a>
+                <a class="btn btn-primary input-block-level" role="button">
+                    <span class="fab fa-youtube fa-3x"></span>
+                </a>
+                <a class="btn btn-primary input-block-level" role="button" href="https://github.com/raymondzmc/visual-analytics-finetuning-pretrained-transformers">
+                    <span class="fab fa-github fa-3x"></span>
+                </a>
+            </div>
+        </div>
+
+        <!-- User selection tab -->
+        <div class="row" id="user-selection">
+            <form class="row row-cols-lg-auto g-3 align-items-center align-middle" >
+                <div class="col-12">
+                    <div class="input-group">
+                        <div class="input-group-text">Corpus:</div>
+                        <select class="form-select" id="corpus">
+                            <option selected value="sst_demo">SST</option>
+                            <option value="cnndm">CNN/DailyMail</option>
+                        </select>
+                        <select class="form-select" id="type">
+                            <option selected value="train">Train</option>
+                            <option value="dev">Dev</option>
+                            <option value="test">Test</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="input-group">
+                        <div class="input-group-text">Model:</div>
+                        <select class="form-select" id="model">
+                            <option selected value="bert">BERT</option>
+                            <option value="roberta">RoBERTa</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="input-group">
+                        <div class="input-group-text">Comparison:</div>
+                        <div class="btn-group" id="comparison-mode" role="group">
+                            <input type="radio" value="on" class="btn-check" name="options" id="on" autocomplete="off"/>
+                            <label class="btn btn-outline-primary" for="on">On</label>
+
+                            <input type="radio" value="off" class="btn-check" name="options" id="off" autocomplete="off" checked/>
+                            <label class="btn btn-outline-primary" for="off">Off</label>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Main visualization -->
+        <div class="row inline-block align-items-center justify-content-evenly vis-row">
+            <!-- Projection View -->
+            <div class="card col-md-6 pull-left">
+                <div class="card-header">
+
+                    <ul class="nav nav-tabs card-header-tabs" id="projectionTabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" aria-current="true" data-bs-toggle="tab" value="hidden" href="#">
+                                <h2> Hidden States </h2>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" aria-current="true" data-bs-toggle="tab" value="cartography" id="cartographyTab" href="#">
+                                <h2> Cartography </h2>
+                            </a>
+                        </li>
+                    </ul>
+
+                </div>
+                <div class="card-block">
+                    <div class="row" id="projection-options-compare" style="display: none;">
+
+                        <div class="col-6" id="projection-options-left">
+                            <div class="row">
+                                <div class="col-3">
+                                    <div class="card-input input-group">
+                                        <div class="input-group-text">Layer</div> 
+                                        <select class="form-select" id="hiddenLayerLeft">
+                                            <option value=0>Embedding</option>
+                                            <option value=1>1</option>
+                                            <option value=2>2</option>
+                                            <option value=3>3</option>
+                                            <option value=4>4</option>
+                                            <option value=5>5</option>
+                                            <option value=6>6</option>
+                                            <option value=7>7</option>
+                                            <option value=8>8</option>
+                                            <option value=9>9</option>
+                                            <option value=10>10</option>
+                                            <option value=11>11</option>
+                                            <option selected value=12>12</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="card-input input-group">
+                                        <div class="input-group-text">Color</div> 
+                                        <select class="form-select" id="projectionColorLeft">
+                                            <option selected value='None'>None</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="card-input input-group">
+                                        <div class="input-group-text">Checkpoint</div> 
+                                        <select class="form-select" id="checkpointNameLeft">
+                                            <option value='pretrained'>pretrained</option>
+                                            <option value='epoch_1'>epoch_1</option>
+                                            <option value='epoch_2'>epoch_2</option>
+                                            <option value='epoch_3'>epoch_3</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6" id="projection-options-right">
+                            <div class="row">
+                                <div class="col-3">
+                                    <div class="card-input input-group">
+                                        <div class="input-group-text">Layer</div> 
+                                        <select class="form-select" id="hiddenLayerRight">
+                                            <option value=0>Embedding</option>
+                                            <option value=1>1</option>
+                                            <option value=2>2</option>
+                                            <option value=3>3</option>
+                                            <option value=4>4</option>
+                                            <option value=5>5</option>
+                                            <option value=6>6</option>
+                                            <option value=7>7</option>
+                                            <option value=8>8</option>
+                                            <option value=9>9</option>
+                                            <option value=10>10</option>
+                                            <option value=11>11</option>
+                                            <option selected value=12>12</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="card-input input-group">
+                                        <div class="input-group-text">Color</div> 
+                                        <select class="form-select" id="projectionColorRight">
+                                            <option selected value='None'>None</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="card-input input-group">
+                                        <div class="input-group-text">Checkpoint</div> 
+                                        <select class="form-select" id="checkpointNameRight">
+                                            <option value='pretrained'>pretrained</option>
+                                            <option value='epoch_1'>epoch_1</option>
+                                            <option value='epoch_2'>epoch_2</option>
+                                            <option value='epoch_3'>epoch_3</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+<!--                         <div class="col-2">
+                            <div class="card-input input-group">
+                                <button id="resetZoom" type="button" class="btn btn-primary">Reset Zoom</button>
+                            </div>
+                        </div> -->
+                    </div>
+                    <div class="row" id="projection-options">
+
+                        <div class="col-6">
+                        <div class="row">
+
+                        <div class="col-4">
+                            <div class="card-input input-group">
+                                <div class="input-group-text">Layer</div> 
+                                <select class="form-select" id="hiddenLayer">
+                                    {% for value in num_hidden_layers %}
+                                    <option value={{value}}>{{value}}</option>
+                                    {% endfor %}
+<!--                                     <option value=0>Embedding</option>
+                                    <option value=1>1</option>
+                                    <option value=2>2</option>
+                                    <option value=3>3</option>
+                                    <option value=4>4</option>
+                                    <option value=5>5</option>
+                                    <option value=6>6</option>
+                                    <option value=7>7</option>
+                                    <option value=8>8</option>
+                                    <option value=9>9</option>
+                                    <option value=10>10</option>
+                                    <option value=11>11</option>
+                                    <option selected value=12>12</option> -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="card-input input-group">
+                                <div class="input-group-text">Color</div> 
+                                <select class="form-select" id="projectionColor">
+                                    <option selected value='None'>None</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="card-input input-group">
+                                <div class="input-group-text">Checkpoint</div> 
+                                <select class="form-select" id="checkpointName">
+                                    {% for name in checkpoints %}
+                                    <option value='{{ name }}'>{{ name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        </div>
+                        </div>                     
+                        <div class="col-2">
+                            <div class="card-input input-group">
+                                <button id="resetZoom" type="button" class="btn btn-primary">Reset Zoom</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row svg-container" id="projectionView"></div>
+                    
+                    <div class="row justify-content-md-center" id="sliderContainer">
+                        <div class="col-6" id="filters-left">
+                            <div class="card-input input-group">
+                                <div class="input-group-text">Select Attribute:</div>
+                                <select class="form-select filter-select" id="filter-select-left">
+                                    <option disabled selected value="none"> -- select an attribute -- </option>
+                                </select>
+                                <div class="range-slider" id="range-slider-left" style="display: none;"></div>
+                                <div class="input-group-text" id="range-value-left" style="display: none;">0-0</div>
+                                <select class="categorical-select" id="categorical-select-left" multiple style="display: none;">
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-6" id="filters-right" style="display: none;">
+                            <div class="card-input input-group">
+                                <div class="input-group-text">Select Attribute:</div>
+                                <select class="form-select filter-select" id="filter-select-right">
+                                    <option disabled selected value="none"> -- select an attribute -- </option>
+                                </select>
+                                <div class="range-slider" id="range-slider-right" style="display: none;"></div>
+                                <div class="input-group-text range-value" id="range-value-right" style="display: none;">0-0</div>
+                                <select class="categorical-select" id="categorical-select-right" multiple style="display: none;">
+                                </select>
+                            </div>
+                        </div>
+<!--                         <div class="col-4">
+                            <div class="card-input input-group">
+                                <div class="input-group-text">Loss Range:</div>
+                                <div id="lossSlider" class="range-slider"></div>
+                                <div class="input-group-text" id="lossValue">0-1</div>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="card-input input-group">
+                                <div class="input-group-text">Class</div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input class-check" type="checkbox" id="class0Check" value="0" checked="true">
+                                    <label class="form-check-label" for="inlineCheckbox1">0</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input class-check" type="checkbox" id="class1Check" value="1" checked="true">
+                                    <label class="form-check-label" for="inlineCheckbox2">1</label>
+                                </div>
+                            </div>
+                        </div> -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content View -->
+            <div class="card col-md-6 pull-right">
+                <div class="card-header">
+                    <h2> Data Table </h2>
+                </div>
+                <div class="card-block" id="contentView">
+                    {{ table(content, headings) }}
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="row inline-block align-items-center vis-row">
+            <!-- Attention View -->
+            <div class="card col-3">
+                <div class="card-header">
+                    <h2> Attention Heads</h2>
+                </div>
+                <div class="row">
+                    <div class="col-7">
+                        <div class="btn-group card-input" role="group" id="attentionViewSelect">
+                            <div class="input-group-text">Display</div>
+                            <input type="radio" class="btn-check" name="attention-view" value="importance" id="headImportance" autocomplete="off" checked="true" />
+                            <label class="btn btn-outline-primary" for="headImportance">Head Importance</label>
+
+                            <input type="radio" class="btn-check" name="attention-view" value="pattern" id="attentionPattern" autocomplete="off"/>
+                            <label class="btn btn-outline-primary" for="attentionPattern">Attention Pattern</label>
+                        </div>
+                    </div>
+                    <div class="col-5">
+                        <div class="btn-group card-input" role="group" id="attentionScaleSelect">
+                            <div class="input-group-text">Scale</div>
+                            <input type="radio" class="btn-check" name="attention-scale" value="aggregate" id="aggregateAttention" autocomplete="off" checked="true" />
+                            <label class="btn btn-outline-primary" for="aggregateAttention">Aggregate</label>
+
+                            <input type="radio" class="btn-check" name="attention-scale" value="instance" id="instanceAttention" autocomplete="off" disabled="true" />
+                            <label class="btn btn-outline-primary" for="instanceAttention">Instance</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-5">
+                        <div class="btn-group card-input" role="group">
+                            <button type="button" id="reset-heads" class="btn btn-secondary active">Reset Heads</button>
+                            <button type="button" id="compute-instance" class="btn btn-primary active">Compute</button>
+                        </div>
+                    </div>
+<!--                     <div class="col-5">
+                        <div class="btn-group card-input" role="group" id="attention-comparison-select">
+                            <div class="input-group-text compare-toggle">Compare:</div>
+                            <input type="radio" class="btn-check" name="attention-comparison-select" value="left" id="attention-left" autocomplete="off" checked="true" />
+                            <label class="btn btn-outline-primary" for="attention-left">Left</label>
+                            <input type="radio" class="btn-check" name="attention-comparison-select" value="right" id="attention-right" autocomplete="off" disabled="true" />
+                            <label class="btn btn-outline-primary" for="attention-right">Right</label>
+                        </div>
+                    </div> -->
+                </div>
+                <div class="row" id="attentionView"></div>
+            </div>
+
+            <!-- Instance View -->
+            <div class="card col-9">
+                <div class="card-header">
+                    <h2> Instance Investigator </h2>
+                </div>
+                <div class="card-block">
+                    <div class="row">
+                        <div class="col-7">
+                            <div class="btn-group card-input" role="group" id="interpretationSelect">
+                                <div class="input-group-text">Interpretation Method</div>
+                                <input type="radio" class="btn-check" value="attention" name="interpretation" id="interpAttention" autocomplete="off" checked="true" />
+                                <label class="btn btn-outline-primary" for="interpAttention">Attention</label>
+
+                                <input type="radio" class="btn-check" value="inputGrad" name="interpretation" id="interpInputGrad"  autocomplete="off"/>
+                                <label class="btn btn-outline-primary" for="interpInputGrad">Input Gradients</label>
+
+                                <input type="radio" class="btn-check" value="lrp" name="interpretation" id="interpLrp" autocomplete="off"/>
+                                <label class="btn btn-outline-primary" for="interpLrp">LRP</label>
+                            </div>
+                        </div>
+<!--                         <div class="col-5">
+                            <div class="btn-group card-input" role="group" id=interpretation-comparison-select>
+                                <div class="input-group-text compare-toggle">Compare:</div>
+                                <input type="radio" class="btn-check" name="interpretation-comparison-select" value="left" id="interpretation-left" autocomplete="off" checked="true" />
+                                <label class="btn btn-outline-primary" for="interpretation-left">Left</label>
+                                <input type="radio" class="btn-check" name="interpretation-comparison-select" value="right" id="interpretation-right" autocomplete="off" disabled="true" />
+                                <label class="btn btn-outline-primary" for="interpretation-right">Right</label>
+                            </div>
+                        </div> -->
+                    </div>
+                    <div class="row align-items-center" >
+                        <div class="col-12" id="instanceView">
+                            <div class="card instance-card overflow-auto">
+                                <h5 class="card-title" id="input-container-title"></h5>
+                                <ul class="token-container" id="input-token-container"></ul>
+                                <h5 class="card-title" id="output-container-title"></h5>
+                                <ul class="token-container" id="output-token-container"></ul>
+                                <ul class="list-group list-group-flush" id="instance-metadata-list">
+                            </div>
+                        </div>
+<!--                         <div class="d-flex justify-content-center">
+                            <div class="spinner-border" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                        </div> -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.12.0/underscore-min.js"></script>
+<script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/6.5.0/d3.min.js" integrity="sha512-0XfwGD1nxplHpehcSVI7lY+m/5L37PNHDt+DOc7aLFckwPXjnjeA1oeNbru7YeI4VLs9i+ADnnHEhP69C9CqTA==" crossorigin="anonymous"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" crossorigin="anonymous"></script>
+<script type="module" src="{{ url_for('static', filename="js/index.js") }}"></script>
+<script src="{{ url_for('static', filename="js/vanillaSelectBox.js") }}"></script>
+
+</body>
+</html>

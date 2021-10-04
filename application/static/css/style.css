@@ -1,0 +1,294 @@
+/* Bootstrap components */
+.container-fluid {
+    padding: 1rem;
+}
+
+h1 {
+    margin: 0;
+}
+
+#banner {
+    background-color: #1023b0;
+    border: 1px solid black;
+    color: white;
+}
+
+#banner > #title{
+    text-align: left;
+    padding: .5rem;
+}
+
+#banner > #icons{
+    text-align: right;
+    padding-right: 0.5rem;
+}
+
+a.btn-primary {
+    background-color: #1023b0;
+    border-color: #1023b0;
+    height: 100%;
+}
+
+#user-selection {
+    padding: 1rem;
+    margin: 1rem 0rem 1rem 0rem;
+    border: 1px solid black;
+}
+
+#user-selection > form {
+    margin-top: 0px;
+}
+
+#user-selection > form > div{
+    margin-top: 0px;
+}
+
+.vis-row {
+    padding: .5rem;
+}
+
+.vis-row .card {
+    padding: 0rem;
+}
+
+h2 {
+    font-size: 1.5rem;
+}
+
+a {
+    color: grey;
+}
+
+.nav-tabs .nav-link.active {
+    color: black;
+}
+.nav-tabs .nav-link:hover {
+    color: black;
+}
+
+.card-input {
+    margin:.5rem;
+}
+
+
+
+/* Remove this to make everything dynamic */
+.card {
+    height: 700px;
+}
+
+
+
+/* Style for layout */
+/*.vis-row {
+    flex: 3;
+    display: flex;
+    flex-direction: row;
+    margin: 10px;
+}
+*/
+
+
+/* Projection View */
+#projectionView {
+    display: block;
+
+    /* TODO: change to be relative to parent height */
+    height: 500px;
+}
+
+#sliderText {
+    background-color: #0d6efd;
+    color: #fff;
+}
+
+#checkpointSlider {
+    width: auto;
+    margin: 5px 10px 0px 10px;
+    
+}
+
+#sliderContainer {
+    margin: 1rem 0 1em 0;
+}
+
+.range-slider {
+    width: 30%;
+    display: inline;
+    margin: 10px 15px 0px 15px !important;
+}
+
+.scatterplot {
+    width: auto;
+    height: auto;
+    position: absolute;
+}
+
+.axis {
+    font-size: 1rem;
+}
+
+.axis-label {
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-anchor: middle;
+}
+
+.form-check {
+    margin-top: 0.5rem;
+    margin-left: 1rem !important;
+}
+/*circle.example {
+    opacity: 0.6;
+    stroke: black;
+    stroke-width: 1;
+    stroke-opacity: 0;
+}
+
+circle.example.emphasized, circle.example.selected {
+    opacity: 1;
+    stroke-opacity: 1;
+}*/
+
+
+/* Style for token visualization*/
+h4 {
+    font-size: 2.5rem;
+    margin-left: 1rem;
+}
+
+ul.token-container {
+    list-style: none;
+    margin: 1.5rem;
+}
+
+ul.token-container li{
+    display: inline-block;
+    min-width: 20px;
+    padding: 5px;
+    background-color: #eee;
+    margin: 2px;
+    font-family: Source Sans Pro,sans-serif;
+    font-weight: 900;
+    font-size: 2rem;
+}
+
+ul.token-container li:hover, {
+    background-color: #e6e6e6;
+}
+
+/* Style for other components*/
+/*#loader {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    display: block;
+    text-align: center;
+    background: 50% 50% no-repeat rgb(249, 249, 249);
+    opacity: .6;
+    padding: 20%
+}
+
+#modal {
+    overflow-y: auto;
+    max-width: 2000px;
+}
+
+text {
+    pointer-events: none;
+}*/
+
+/* Attention View */
+#attention-svg, #attention-canvas {
+    position: absolute;
+    width: 700px;
+}
+
+/* Content View */
+#contentView {
+    overflow-y: scroll;
+}
+
+td:nth-child(1) {
+    font-weight: bold;
+}
+
+.content.selected {
+    background-color: #f2f2f2;
+}
+
+.cell {
+    user-select: none;
+}
+
+.border {
+    fill-opacity: 0;
+    stroke: black;
+    stroke-width: 3;
+    stroke-opacity: 1;
+    stroke-opacity: 0;
+}
+
+.border.selected {
+    stroke-opacity: 1;
+}
+
+.border.hovered {
+    stroke-opacity: 0.5;
+}
+
+.prune-button {
+    display: block;
+    visibility: hidden;
+}
+
+.prune-button.hovered, .prune-button.selected {
+    visibility: visible;
+}
+
+.prune-button:hover {
+    opacity: 0.6
+}
+
+
+/* Style for heatmap visualization*/
+.grid > rect:hover {
+    opacity: 0.7;
+    cursor: pointer;
+}
+
+.grid > rect.selected {
+    stroke: black;
+    stroke-width: 1;
+}
+
+.tick.selected > text {
+    font-size: 20px;
+    font-weight: bold;
+    color: red;
+    text-decoration: underline;
+}
+
+.card.instance-card {
+    margin: 1em;
+    height: auto;
+    padding: 1em;
+}
+
+.card-title {
+    font-size: 2em;
+}
+
+.card > .list-group-flush {
+    border-width: 1px;
+}
+
+.card > .list-group-flush > .list-group-item{
+    border-width: 1px;
+    font-size: 2em;
+    font-family: var(--bs-font-sans-serif);
+    font-weight: 500;
+}
