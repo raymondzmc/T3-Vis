@@ -159,15 +159,10 @@ def bert_lrp(model, out_relevance, grad=None):
     return relevance
 
 
-def compute_input_saliency(model, data, logits, input_key=None):
+def compute_input_saliency(model, input_len, logits):
     model.zero_grad()
 
     dim = 1 # Dimension for data
-
-    if input_key is not None:
-        input_len = data[input_key].size(dim)
-    else:
-        input_len = data[data.keys()[0]].size(dim)
 
     output_len = logits.size(dim)
 
@@ -185,7 +180,7 @@ def compute_input_saliency(model, data, logits, input_key=None):
         relevance = bert_lrp(model, out_relevance).sum(-1).squeeze(0).detach().abs()
         saliency['lrp'].append(normalize_tensor(relevance).tolist())
 
-        embedding_output = model.bert.embeddings.word_embeddings.activation
+        embedding_output = model.model.bert.embeddings.word_embeddings.activation
 
         # Replace this hard-code line later
         grad = torch.autograd.grad(out_relevance.sum(), embedding_output, retain_graph=True)[0]

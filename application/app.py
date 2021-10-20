@@ -42,8 +42,8 @@ class T3_Visualization(object):
 
         self.init_model(args.model)
         self.dataset = eval(f"{args.dataset}()")
-        self.num_hidden_layers = self.model.config.num_hidden_layers
-        self.num_attention_heads = self.model.config.num_attention_heads
+        self.num_hidden_layers = self.model.num_hidden_layers
+        self.num_attention_heads = self.model.num_attention_heads
         self.pruned_heads = collections.defaultdict(list)
 
         self.table_headings = tuple(self.dataset.column_names)
@@ -55,7 +55,7 @@ class T3_Visualization(object):
         except ImportError:
             print(f"\nWarning: Cannot import function \"{args.model}\" from directory \"models\", please ensure the function is defined in this file!")
 
-        self.model, self.tokenizer = eval(f"{model_name}()")
+        self.model = eval(f"{model_name}()")
 
         if self.curr_checkpoint_dir != None:
             self.model.load_state_dict(torch.load(pjoin(curr_checkpoint_dir, 'model.pth')))
@@ -70,7 +70,7 @@ class T3_Visualization(object):
                 self.pruned_heads[layer] = set(heads + pruned_heads)
             self.model.prune_heads(heads_to_prune)
 
-    def evaluate_example(self, input_text, label):
+    def evaluate_example(self, example):
         """
         Perform inference on a single data example,
         return output logits, attention scores, saliency maps along with other attributes 
@@ -80,16 +80,11 @@ class T3_Visualization(object):
         self.model.train()
         self.model.zero_grad()
         register_hooks(self.model)
-        model_input = self.tokenizer(input_text)
-        model_input['labels'] = torch.tensor(label)
-
-        for key, value in model_input.items():
-            model_input[key] = torch.tensor(value).unsqueeze(0)
 
 
-        output = self.model(**model_input, output_attentions=True)
+        output = self.model(example, output_attentions=True)
         logits = output['logits']
-        input_saliency = compute_input_saliency(self.model, model_input, logits, input_key='input_ids')
+        input_saliency = compute_input_saliency(self.model, len(example['tokens']), logits)
         output['loss'].backward(retain_graph=True)
         results['loss'] = output['loss'].item()
         results['input_saliency'] = input_saliency
@@ -97,7 +92,7 @@ class T3_Visualization(object):
         results['attn'] = format_attention(output['attentions'], self.num_attention_heads, self.pruned_heads)
         results['attn_pattern'] = format_attention_image(np.array(results['attn']))
         results['head_importance'] = normalize(get_taylor_importance(self.model)).tolist()
-        results['tokens'] = self.tokenizer.convert_ids_to_tokens(model_input['input_ids'].tolist()[0])
+        results['tokens'] = example['tokens']
 
         return results
 
@@ -241,10 +236,12 @@ def eval_one():
 
     heads_to_prune = {int(k): v for k, v in flask.request.json['pruned_heads'].items()}
 
-    t3_vis.prune_heads(heads_to_prune)
+    if heads_to_prune != {}: 
+        t3_vis.prune_heads(heads_to_prune)
+
     data = t3_vis.dataset[int(sample_name)]
 
-    results = t3_vis.evaluate_example(data['input'], data['label'])
+    results = t3_vis.evaluate_example(data)
     return flask.jsonify(results)
 
 
