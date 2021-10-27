@@ -62,7 +62,7 @@ The directory for each visualization task should contain subdirectories represen
   * `others` (optional): Discrete or continuous attributes of the data examples used for color encodings (e.g. label, prediction, loss, length), need to be defined in `projection_keys` in `get_data()`
 * __`model.pt`__ (optional): Model parameters for the current checkpoint (see [loading and saving documenation](https://pytorch.org/tutorials/beginner/saving_loading_models.html) for Pytorch)
 
-For example in the [SST-2](https://huggingface.co/datasets/sst) demo, the following file structure is required under the resource directory `sst_bert`.
+For example in the [SST-2](https://huggingface.co/datasets/sst) Demo, the following file structure is required under the resource directory `sst_bert`.
 ```bash
 └── sst_bert
     ├── epoch_1
@@ -86,5 +86,19 @@ For example in the [SST-2](https://huggingface.co/datasets/sst) demo, the follow
         └── projection_data.pt
 ```
 Please see our script [`run_sst2_classification.py`](application/run_sst2_classification.py) for example on how to processing data for visualization during fine-tuning. We provide some helpful functions in the [`application/utils`](application/utils) directory.
+
+## Running the Application
+```sh
+cd application
+python app.py --model <model_function> --dataset <dataset_function> --resource_dir <resource_directory>
+```
+ 
+For example, for the `SST-2` Demo, the following command is used to run T<sup>3</sup>-Vis:
+ 
+`python app.py --model bert_classifier --dataset sst2_train_set --resource_dir resources/sst_bert/`
+ 
+
+## Future
+More use case examples and features coming soon...
 
 In the meantime, please check out our [paper](https://arxiv.org/abs/2108.13587) to appear in the EMNLP 2021 System Demonstration track.
