@@ -27,7 +27,7 @@ def get_taylor_importance(model):
     importance_scores = np.zeros((n_layers, n_heads))
 
     for i in range(n_layers):
-        attention = model.model.bert.encoder.layer[i].attention
+        attention = model.bert.encoder.layer[i].attention
         num_attention_heads = attention.self.num_attention_heads
 
         pruned_heads = attention.pruned_heads
@@ -35,7 +35,7 @@ def get_taylor_importance(model):
 
         for head_idx in leftover_heads:
             heads, index = find_pruneable_heads_and_indices([head_idx], num_attention_heads, head_size, pruned_heads)
-            index = index.to(model.model.device)
+            index = index.to(model.device)
 
             query_b_grad = (attention.self.query.bias.grad[index] *\
                             attention.self.query.bias[index]) ** 2
@@ -93,8 +93,6 @@ def compute_importance(model, dataloader, measure='taylor'):
             for k, v in inputs.items():
                 if isinstance(v, torch.Tensor):
                     inputs[k] = v.cuda()
-        idx = inputs['idx'].cpu().tolist()
-        del inputs['idx']
 
         output = model(**inputs)
         loss = output['loss']

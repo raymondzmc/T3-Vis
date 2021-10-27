@@ -40,13 +40,15 @@ class T3_Visualization(object):
         self.checkpoint_dirs = [subdir for subdir in os.listdir(self.resource_dir) if os.path.isdir(pjoin(self.resource_dir, subdir))]
         self.curr_checkpoint_dir = None
 
+        # TO DO: Set the pretrained model as an attribute of the model to get called
+
         self.init_model(args.model)
         self.dataset = eval(f"{args.dataset}()")
         self.num_hidden_layers = self.model.num_hidden_layers
         self.num_attention_heads = self.model.num_attention_heads
         self.pruned_heads = collections.defaultdict(list)
 
-        self.table_headings = tuple(self.dataset.column_names)
+        self.table_headings = tuple(self.dataset.visualize_columns)
         self.table_content = [tuple(row[col_name] for col_name in self.table_headings) for i, row in enumerate(self.dataset) if (args.n_examples and i < args.n_examples)]
 
     def init_model(self, model_name):
@@ -70,7 +72,7 @@ class T3_Visualization(object):
                 self.pruned_heads[layer] = set(heads + pruned_heads)
             self.model.prune_heads(heads_to_prune)
 
-    def evaluate_example(self, example):
+    def evaluate_example(self, idx):
         """
         Perform inference on a single data example,
         return output logits, attention scores, saliency maps along with other attributes 
@@ -81,8 +83,19 @@ class T3_Visualization(object):
         self.model.zero_grad()
         register_hooks(self.model)
 
+        example = self.dataset[idx]
 
-        output = self.model(example, output_attentions=True)
+        for col in self.dataset.input_columns:
+            example[col] = torch.tensor(example[col]).unsqueeze(0)
+
+        for col in self.dataset.target_columns:
+            example[col] = torch.tensor(example[col])
+
+        model_input = {k: v for (k, v) in example.items() if k in self.dataset.input_columns + self.dataset.target_columns}
+        pdb.set_trace()
+        # [example[key] = torch.tensor() for ]
+
+        output = self.model(**model_input, output_attentions=True)
         logits = output['logits']
         input_saliency = compute_input_saliency(self.model, len(example['tokens']), logits)
         output['loss'].backward(retain_graph=True)
@@ -155,8 +168,9 @@ def get_data():
 
     layer = int(flask.request.json['hiddenLayer'])
 
+    # TODO: This should be formatted by the user during preprocessing
     projection_keys = {
-        'hidden': (f'layer_{layer}_tsne_1', f'layer_{layer}_tsne_2'),
+        'hidden': (f'projection_{layer}_1', f'projection_{layer}_2'),
         'cartography': ('avg_variability', 'avg_confidence'),
         'discrete': ['labels', 'predictions'],
         'continuous': ['gt_confidence', 'loss'],
@@ -228,7 +242,9 @@ def get_data():
 
 @app.route('/api/eval_one', methods=['POST'])
 def eval_one():
-
+    """
+    Evaluate a single example in the back-end, specified by the example_id
+    """
     sample_name = flask.request.json['example_id']
 
     results = {}
@@ -239,9 +255,7 @@ def eval_one():
     if heads_to_prune != {}: 
         t3_vis.prune_heads(heads_to_prune)
 
-    data = t3_vis.dataset[int(sample_name)]
-
-    results = t3_vis.evaluate_example(data)
+    results = t3_vis.evaluate_example(int(sample_name))
     return flask.jsonify(results)
 
 
@@ -257,6 +271,8 @@ if __name__ == '__main__':
     # TODO: Let user select the model/dataset from UI interaction
     parser.add_argument("--model", required=True, help="Method for returning the model")
     parser.add_argument("--dataset", required=True, help="Method for returning the dataset")
+
+    # This should be based on the number of examples saved
     parser.add_argument("--n_examples", default=5000, help="The maximum number of data examples to visualize")
 
     parser.add_argument("--resource_dir", default=pjoin(cwd, 'resources'), \
