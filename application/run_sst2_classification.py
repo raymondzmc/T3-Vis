@@ -24,14 +24,23 @@ def main(args):
     """
 
     try:
-        exec(f"from dataset import {args.dataset}")
+        exec(f"from dataset import {args.train_set}")
     except ImportError:
-        print(f"\nWarning: Cannot import function \"{args.dataset}\" from directory \"dataset\", please ensure the function is defined in this file!")
-    dataset = eval(f"{args.dataset}()")
+        print(f"\nWarning: Cannot import function \"{args.train_set}\" from directory \"dataset\", please ensure the function is defined in this file!")
+
+    try:
+        exec(f"from dataset import {args.validation_set}")
+    except ImportError:
+        print(f"\nWarning: Cannot import function \"{args.validation_set}\" from directory \"dataset\", please ensure the function is defined in this file!")
+
+    dataset = eval(f"{args.train_set}()")
     columns = dataset.input_columns + dataset.target_columns
-    dataset.set_format(type='torch', columns=columns)
+    dataset.set_format(type='torch', columns=columns + ['idx'])
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size)
 
+    val_dataset = eval(f"{args.validation_set}()")
+    val_dataset.set_format(type='torch', columns=columns)
+    val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size)
     try:
         exec(f"from models import {args.model}")
     except ImportError:
@@ -58,16 +67,15 @@ def main(args):
 
     head_importance_path = pjoin(pretrained_dir, head_importance_file)
     if not os.path.isfile(head_importance_path):
-        importance = compute_importance(model, dataloader)
+        importance = compute_importance(model, val_dataloader)
         importance = normalize(importance)
         torch.save(importance, head_importance_path)
 
     aggregate_attn_path = pjoin(pretrained_dir, aggregate_attn_file)
     if not os.path.isfile(aggregate_attn_file):
-        attn = compute_aggregated_attn(model, dataloader, dataset.max_length)
+        attn = compute_aggregated_attn(model, val_dataloader, dataset.max_length)
         torch.save(attn, aggregate_attn_path)
 
-    dataset.set_format(type='torch', columns=columns + ['idx'])
     projection_data_path = pjoin(pretrained_dir, projection_data_file)
     if not os.path.isfile(projection_data_path):
         tsne_hidden, labels = output_hidden(model, dataloader, max_entries=args.n_examples)
@@ -181,12 +189,12 @@ def main(args):
 
         # Save the necessary data file for the current epoch
         if not os.path.isfile(head_importance_path):
-            importance = compute_importance(model, dataloader)
+            importance = compute_importance(model, val_dataloader)
             importance = normalize(importance)
             torch.save(importance, head_importance_path)
 
         if not os.path.isfile(aggregate_attn_file):
-            attn = compute_aggregated_attn(model, dataloader, dataset.max_length)
+            attn = compute_aggregated_attn(model, val_dataloader, dataset.max_length)
             torch.save(attn, aggregate_attn_path)
 
         dataset.set_format(type='torch', columns=columns + ['idx'])
@@ -200,16 +208,16 @@ def main(args):
                 projection_data[f'projection_{layer_idx}_2'] = pd.Series(tsne_hidden[:, layer_idx, 1])
 
             projection_data['labels'] = pd.Series(labels)
-            projection_data['loss'] = pd.Series(epoch_loss.squeeze()[:max_entries])
-            projection_data['predictions'] = pd.Series(predictions.squeeze()[:max_entries])
-            projection_data['gt_confidence'] = pd.Series(p_y[:max_entries, epoch])
-            torch.save(projection_data, projection_data_path)
+            projection_data['loss'] = pd.Series(epoch_loss.squeeze()[:args.n_examples])
+            projection_data['predictions'] = pd.Series(predictions.squeeze()[:args.n_examples])
+            projection_data['gt_confidence'] = pd.Series(p_y[:args.n_examples, epoch])
 
             if epoch >= 1:
                 confidence = p_y[:, :epoch + 1].mean(axis=1)
                 variability = ((p_y[:, :epoch + 1] - np.repeat(confidence[:, np.newaxis], epoch + 1, axis=1)) ** 2).mean(axis=1) ** (1/2)
-                projection_data['avg_confidence'] = pd.Series(confidence[:max_entries])
-                projection_data['avg_variability'] = pd.Series(variability[:max_entries])
+                projection_data['avg_confidence'] = pd.Series(confidence[:args.n_examples])
+                projection_data['avg_variability'] = pd.Series(variability[:args.n_examples])
+            torch.save(projection_data, projection_data_path)
 
 
 
@@ -225,7 +233,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--model", required=True, help="Method for returning the model")
-    parser.add_argument("--dataset", required=True, help="Method for returning the dataset")
+    parser.add_argument("--train_set", required=True, help="Method for returning the training set")
+    parser.add_argument("--validation_set", required=True, help="Method for returning the validation set")
     parser.add_argument("--n_examples", default=5000, help="The maximum number of data examples to visualize")
 
     parser.add_argument("--resource_dir", default=pjoin(cwd, 'resources'), \

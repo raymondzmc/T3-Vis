@@ -83,16 +83,14 @@ def compute_importance(model, dataloader, measure='taylor'):
     else:
         head_mask = None
 
-
-
     for step, inputs in enumerate(tqdm(dataloader)):
-
         batch_size_ = inputs['input_ids'].__len__()
 
         if torch.cuda.is_available():
             for k, v in inputs.items():
                 if isinstance(v, torch.Tensor):
                     inputs[k] = v.cuda()
+
 
         output = model(**inputs)
         loss = output['loss']

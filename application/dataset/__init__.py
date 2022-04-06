@@ -1,3 +1,3 @@
 # Import customized datasets here
 
-from .sst2 import sst2_train_set
+from .sst2 import sst2_train_set, sst2_validation_set, sst2_test_set

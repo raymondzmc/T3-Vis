@@ -40,6 +40,8 @@ class T3_Visualization(object):
         self.checkpoint_dirs = [subdir for subdir in os.listdir(self.resource_dir) if os.path.isdir(pjoin(self.resource_dir, subdir))]
         self.curr_checkpoint_dir = None
 
+        self.filter_paddings = args.filter_paddings
+
         # TO DO: Set the pretrained model as an attribute of the model to get called
 
         self.init_model(args.model)
@@ -48,8 +50,9 @@ class T3_Visualization(object):
         self.num_attention_heads = self.model.num_attention_heads
         self.pruned_heads = collections.defaultdict(list)
 
+
         self.table_headings = tuple(self.dataset.visualize_columns)
-        self.table_content = [tuple(row[col_name] for col_name in self.table_headings) for i, row in enumerate(self.dataset) if (args.n_examples and i < args.n_examples)]
+        self.table_content = [{col_name:row[col_name] for col_name in self.table_headings} for i, row in enumerate(self.dataset) if (args.n_examples and i < args.n_examples)]
 
     def init_model(self, model_name):
         try:
@@ -60,7 +63,7 @@ class T3_Visualization(object):
         self.model = eval(f"{model_name}()")
 
         if self.curr_checkpoint_dir != None:
-            self.model.load_state_dict(torch.load(pjoin(curr_checkpoint_dir, 'model.pth')))
+            self.model.load_state_dict(torch.load(pjoin(curr_checkpoint_dir, 'model.pt')))
 
     def prune_heads(self, heads_to_prune):
         if heads_to_prune == {} and self.pruned_heads != {}:
@@ -92,8 +95,12 @@ class T3_Visualization(object):
             example[col] = torch.tensor(example[col])
 
         model_input = {k: v for (k, v) in example.items() if k in self.dataset.input_columns + self.dataset.target_columns}
-        pdb.set_trace()
         # [example[key] = torch.tensor() for ]
+        if self.filter_paddings:
+            input_len = example['attention_mask'].sum().item()
+
+            for input_key in self.dataset.input_columns:
+                model_input[input_key] = model_input[input_key][:, :input_len]
 
         output = self.model(**model_input, output_attentions=True)
         logits = output['logits']
@@ -105,7 +112,7 @@ class T3_Visualization(object):
         results['attn'] = format_attention(output['attentions'], self.num_attention_heads, self.pruned_heads)
         results['attn_pattern'] = format_attention_image(np.array(results['attn']))
         results['head_importance'] = normalize(get_taylor_importance(self.model)).tolist()
-        results['tokens'] = example['tokens']
+        results['tokens'] = example['tokens'][:input_len] if self.filter_paddings else example['tokens']
 
         return results
 
@@ -128,10 +135,10 @@ def check_resource_dir(resource_dir):
 
     required_files = [
         # (File Name, File Information, Required)
-        ('aggregate_attn.pth', 'Aggregated Attention Matrices', True),
-        ('head_importance.pth', 'Head Importance Scores', True),
-        ('projection_data.pth', 'Dataset Projection Data', True), 
-        ('model.pth', 'Model Parameters', False)] # By default use the randomly initialized model parameters
+        ('aggregate_attn.pt', 'Aggregated Attention Matrices', True),
+        ('head_importance.pt', 'Head Importance Scores', True),
+        ('projection_data.pt', 'Dataset Projection Data', True), 
+        ('model.pt', 'Model Parameters', False)] # By default use the randomly initialized model parameters
 
  
     for subdir in sub_dirs:
@@ -158,11 +165,14 @@ def get_data():
     TODO: Move this function into a method for "T3-Vis"
     """
     projection_type = flask.request.json['projectionType']
+    # pdb.set_trace()
+    if projection_type == 'cartography' and flask.request.json['checkpointName'] in ['pretrained', 'epoch_1']:
+        flask.request.json['checkpointName'] = 'epoch_2'
 
     t3_vis.curr_checkpoint_dir = flask.request.json['checkpointName']
     checkpoint_dir = pjoin(t3_vis.resource_dir, t3_vis.curr_checkpoint_dir)
-
-    model_weights_file = pjoin(checkpoint_dir, 'model.pth')
+    print(checkpoint_dir)
+    model_weights_file = pjoin(checkpoint_dir, 'model.pt')
     if os.path.exists(model_weights_file):
         t3_vis.model.load_state_dict(torch.load(model_weights_file))
 
@@ -170,22 +180,21 @@ def get_data():
 
     # TODO: This should be formatted by the user during preprocessing
     projection_keys = {
-        'hidden': (f'projection_{layer}_1', f'projection_{layer}_2'),
+        'hidden': (f'layer_{layer}_tsne_1', f'layer_{layer}_tsne_2'),
+        # 'hidden': (f'projection_{layer}_1', f'projection_{layer}_2'),
         'cartography': ('avg_variability', 'avg_confidence'),
         'discrete': ['labels', 'predictions'],
         'continuous': ['gt_confidence', 'loss'],
     }
 
-    projection_data = torch.load(pjoin(checkpoint_dir, 'projection_data.pth'))
-
-
+    projection_data = torch.load(pjoin(checkpoint_dir, 'projection_data.pt'))
     results = {}
     results['ids'] = projection_data['id'].tolist()
 
     x_name = projection_keys[projection_type][0]
     y_name = projection_keys[projection_type][1]
 
-    if (x_name in projection_data.columns and y_name in projection_data.columns):
+    if (x_name in projection_data.keys() and y_name in projection_data.keys()):
         results['x'] = projection_data[x_name].tolist()
         results['y'] = projection_data[y_name].tolist()
 
@@ -227,13 +236,13 @@ def get_data():
         results['continuous'].append(attr_val)
 
 
-    aggregate_attn = torch.load(pjoin(checkpoint_dir, 'aggregate_attn.pth'))
+    aggregate_attn = torch.load(pjoin(checkpoint_dir, 'aggregate_attn.pt'))
 
     # Do this for now, need to send an image file to be more efficient
     for i in range(len(aggregate_attn)):
         aggregate_attn[i]['attn'] = json.dumps(aggregate_attn[i]['attn'])
 
-    importance = torch.load(pjoin(checkpoint_dir, 'head_importance.pth'))
+    importance = torch.load(pjoin(checkpoint_dir, 'head_importance.pt'))
     results['head_importance'] = importance.tolist()
     results['aggregate_attn'] = aggregate_attn
 
@@ -246,7 +255,7 @@ def eval_one():
     Evaluate a single example in the back-end, specified by the example_id
     """
     sample_name = flask.request.json['example_id']
-
+    # pdb.set_trace()
     results = {}
     results['attn'] = {}
 
@@ -273,10 +282,14 @@ if __name__ == '__main__':
     parser.add_argument("--dataset", required=True, help="Method for returning the dataset")
 
     # This should be based on the number of examples saved
-    parser.add_argument("--n_examples", default=5000, help="The maximum number of data examples to visualize")
+    parser.add_argument("--n_examples", default=5000, type=int, help="The maximum number of data examples to visualize")
 
+    parser.add_argument("--filter_paddings", default=True, type=bool, help="Filter padding tokens for visualization")
     parser.add_argument("--resource_dir", default=pjoin(cwd, 'resources'), \
                         help="Directory containing the necessary visualization resources for each model checkpoint")
+
+
+    
 
     args = parser.parse_args()
 

@@ -97,7 +97,15 @@ def format_attention(output_attention, n_heads, pruned_heads):
 
 
 def output_hidden(model, dataloader, layers=None, max_entries=5000):
-    tsne_model = TSNE(n_components=2, verbose=0, perplexity=30, n_iter=2000, metric='precomputed', random_state=0)
+    tsne_model = TSNE(n_components=2,
+                      verbose=0,
+                      perplexity=30,
+                      learning_rate='auto',
+                      n_iter=2000,
+                      init='random',
+                      metric='precomputed',
+                      random_state=0,
+                      square_distances=True)
 
     model.eval()
 

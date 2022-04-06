@@ -91,25 +91,25 @@ def bert_layer_lrp(layer, relevance):
 
 
     # Relevance for the FF sub-layer
-    relevance_residual_ff = torch.autograd.grad(layer.output.activation, layer.output.input[1], grad_outputs=relevance, retain_graph=True)[0]
+    relevance_residual_ff = torch.autograd.grad(layer.output.activation, layer.output.input[1], grad_outputs=relevance, retain_graph=True, allow_unused=True)[0]
 
-    relevance = torch.autograd.grad(layer.output.activation, layer.output.dense.activation, grad_outputs=relevance, retain_graph=True)[0]
+    relevance = torch.autograd.grad(layer.output.activation, layer.output.dense.activation, grad_outputs=relevance, retain_graph=True, allow_unused=True)[0]
     relevance = lrp_linear(layer.output.dense.weight, layer.output.dense.bias, layer.output.dense.input[0], relevance)
     relevance = lrp_linear(layer.intermediate.dense.weight, layer.intermediate.dense.bias, layer.intermediate.dense.input[0], relevance)
     relevance += relevance_residual_ff
 
     # Relevance for the self-attention output transformation
-    relevance_residual_attn = torch.autograd.grad(layer.attention.output.activation, layer.attention.output.input[1], grad_outputs=relevance, retain_graph=True)[0]
+    relevance_residual_attn = torch.autograd.grad(layer.attention.output.activation, layer.attention.output.input[1], grad_outputs=relevance, retain_graph=True, allow_unused=True)[0]
 
-    relevance = torch.autograd.grad(layer.attention.output.activation, layer.attention.output.dense.activation, grad_outputs=relevance, retain_graph=True)[0]
+    relevance = torch.autograd.grad(layer.attention.output.activation, layer.attention.output.dense.activation, grad_outputs=relevance, retain_graph=True, allow_unused=True)[0]
     relevance = lrp_linear(layer.attention.output.dense.weight, layer.attention.output.dense.bias, layer.attention.output.dense.input[0], relevance)
 
     # Relevance for the self-attention mechanism
     self_attention = layer.attention.self
     key, query, value = self_attention.key, self_attention.query, self_attention.value
-    relevance_key = torch.autograd.grad(self_attention.activation[0], key.activation,  grad_outputs=relevance,  retain_graph=True)[0]
-    relevance_query = torch.autograd.grad(self_attention.activation[0], query.activation,  grad_outputs=relevance,  retain_graph=True)[0]
-    relevance_value = torch.autograd.grad(self_attention.activation[0], value.activation,  grad_outputs=relevance,  retain_graph=True)[0]
+    relevance_key = torch.autograd.grad(self_attention.activation[0], key.activation,  grad_outputs=relevance,  retain_graph=True, allow_unused=True)[0]
+    relevance_query = torch.autograd.grad(self_attention.activation[0], query.activation,  grad_outputs=relevance,  retain_graph=True, allow_unused=True)[0]
+    relevance_value = torch.autograd.grad(self_attention.activation[0], value.activation,  grad_outputs=relevance,  retain_graph=True, allow_unused=True)[0]
 
     relevance_key = lrp_linear(key.weight, key.bias, key.input[0], relevance)
     relevance_query = lrp_linear(query.weight, query.bias, query.input[0], relevance)
@@ -188,6 +188,7 @@ def compute_input_saliency(model, input_len, logits):
         grad_input = (grad * embeddings).sum(-1).squeeze(0).detach().abs()
         saliency['inputGrad'].append(normalize_tensor(grad_input).tolist())
 
+    model.zero_grad()
     return saliency
 
 

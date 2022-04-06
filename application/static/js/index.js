@@ -352,6 +352,7 @@ const loadData = (state) => {
 
     // TODO: Do something to handle the error here
     if (response['x'] === undefined || response['y'] === undefined) {
+      $('#loader').hide();
       return;
     }
 
@@ -403,10 +404,9 @@ const loadData = (state) => {
 
 
     state = renderProjection(response, projectionSVG, projectionWidth, projectionHeight, state);
+    $('#loader').hide();
 
   });
-  $('#loader').hide();
-
   return state
 }
 

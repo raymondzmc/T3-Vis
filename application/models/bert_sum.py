@@ -35,7 +35,7 @@ class BERT_SUM(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
-    def forward(self, input_ids, seg_ids, input_mask, cls_idx, cls_mask, head_mask=None, output_attentions=False):
+    def forward(self, input_ids, seg_ids, input_mask, cls_idx, cls_mask, sent_labels=None, head_mask=None, output_attentions=False):
         self.tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
 
         encoder_output = self.bert(input_ids=input_ids, attention_mask=input_mask, token_type_ids=seg_ids, head_mask=head_mask, output_attentions=output_attentions)

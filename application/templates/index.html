@@ -11,9 +11,9 @@
       </thead>
       <tbody>
         {% for row in content %}
-        <tr class="content" id="content-{{ row[0] }}">
-            {% for cell in row %}
-            <td>{{ cell }}</td>
+        <tr class="content" id="content-{{ row['idx'] }}">
+            {% for header in headings %}
+                <td>{{ row[header] }}</td>
             {% endfor %}
         </tr>
         {% endfor %}
