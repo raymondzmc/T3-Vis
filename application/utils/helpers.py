@@ -37,9 +37,9 @@ def format_attention_image(attention):
 
 def compute_aggregated_attn(model, dataloader, max_input_len, measure='taylor'):
 
-    n_layers = model.bert.config.num_hidden_layers
-    n_heads = model.bert.config.num_attention_heads
-    head_size = int(model.bert.config.hidden_size / n_heads)
+    n_layers = model.longformer.config.num_hidden_layers
+    n_heads = model.longformer.config.num_attention_heads
+    head_size = int(model.longformer.config.hidden_size / n_heads)
     n_examples = len(dataloader.dataset)
 
     # importance_scores = np.zeros((n_layers, n_heads))

@@ -27,8 +27,8 @@ def get_taylor_importance(model):
     importance_scores = np.zeros((n_layers, n_heads))
 
     for i in range(n_layers):
-        attention = model.bert.encoder.layer[i].attention
-        num_attention_heads = attention.self.num_attention_heads
+        attention = model.longformer.encoder.layer[i].attention
+        num_attention_heads = attention.self.num_heads
 
         pruned_heads = attention.pruned_heads
         leftover_heads = set(list(range(n_heads))) - pruned_heads
@@ -67,10 +67,10 @@ def compute_importance(model, dataloader, measure='taylor'):
 
     assert measure in ['taylor', 'oracle', 'sensitivity']
 
-    max_input_len = model.bert.config.max_position_embeddings
-    n_layers = model.bert.config.num_hidden_layers
-    n_heads = model.bert.config.num_attention_heads
-    head_size = int(model.bert.config.hidden_size / n_heads)
+    max_input_len = model.config.max_position_embeddings
+    n_layers = model.config.num_hidden_layers
+    n_heads = model.config.num_attention_heads
+    head_size = int(model.config.hidden_size / n_heads)
 
     importance_scores = np.zeros((n_layers, n_heads))
 

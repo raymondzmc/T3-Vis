@@ -2,8 +2,8 @@ import math
 import torch
 import torch.nn as nn
 import numpy as np
-from transformers import BertTokenizer, BertForSequenceClassification
-from transformers.models.bert.modeling_bert import BertEmbeddings, BertLayer, BertSelfAttention
+from transformers import LongformerTokenizer, LongformerForSequenceClassification
+from transformers.models.longformer.modeling_longformer import LongformerEmbeddings, LongformerLayer, LongformerSelfAttention
 
 import pdb
 
@@ -53,7 +53,7 @@ def register_hooks(model):
         torch.nn.Dropout,
         torch.nn.Softmax,
         torch.nn.Tanh,
-        BertEmbeddings,
+        LongformerEmbeddings,
     )
 
     def forward_hook(module, input, output):
@@ -69,7 +69,7 @@ def register_hooks(model):
 
 
     for name, module in model.named_children():
-        if isinstance(module, BertSelfAttention):
+        if isinstance(module, LongformerSelfAttention):
             module.register_forward_hook(forward_hook_attn)
         elif not isinstance(module, allowed_pass_layers):
             module.register_forward_hook(forward_hook)
@@ -149,7 +149,7 @@ def bert_lrp(model, out_relevance, grad=None):
             relevance = lrp_linear(module.dense.weight, module.dense.bias, module.dense.input[0], relevance)
             # relevance_all = torch.zeros_like(module.input[0])
             # relevance_all[:, 0] = relevance
-        elif isinstance(module, BertLayer):
+        elif isinstance(module, LongformerLayer):
             relevance = bert_layer_lrp(module, relevance)
         elif isinstance(module, allowed_pass_layers):
             continue
@@ -199,8 +199,8 @@ def compute_input_saliency(model, input_len, logits):
 if __name__ == "__main__":
 
     # Example code
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
+    tokenizer = LongformerTokenizer.from_pretrained('allenai/longformer-base-4096')
+    model = LongformerForSequenceClassification.from_pretrained('allenai/longformer-base-4096')
     model.train()
 
 

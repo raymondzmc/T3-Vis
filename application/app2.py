@@ -8,15 +8,14 @@ import collections
 
 import numpy as np
 from os.path import join as pjoin
-
+from dataset.papers import papers_train_set
+from dataset.sst2 import sst2_train_set
+from models.longformer_papers import longformer_finetuned_papers
 from utils.input_saliency import register_hooks, compute_input_saliency
 from utils.head_importance import get_taylor_importance
 from utils.helpers import normalize, format_attention, format_attention_image
 
 import pdb
-
-
-
 
 ################### Global Objects ###################
 app = flask.Flask(__name__, template_folder='templates')
@@ -31,11 +30,6 @@ class T3_Visualization(object):
 
         self.args = args
 
-        try:
-            exec(f"from dataset import {args.dataset}")
-        except ImportError:
-            print(f"\nWarning: Cannot import function \"{args.dataset}\" from directory \"dataset\", please ensure the function is defined in this file!")
-
         self.resource_dir = args.resource_dir
         self.checkpoint_dirs = [subdir for subdir in os.listdir(self.resource_dir) if os.path.isdir(pjoin(self.resource_dir, subdir))]
         self.curr_checkpoint_dir = None
@@ -44,30 +38,30 @@ class T3_Visualization(object):
 
         # TO DO: Set the pretrained model as an attribute of the model to get called
 
-        self.init_model(args.model)
-        self.dataset = eval(f"{args.dataset}()")
+        self.init_model()
+        self.dataset = sst2_train_set()
         self.num_hidden_layers = self.model.num_hidden_layers
         self.num_attention_heads = self.model.num_attention_heads
         self.pruned_heads = collections.defaultdict(list)
 
+        if args.n_examples < len(self.dataset):
+            max_entries = args.n_examples
+        else:
+            max_entries = len(self.dataset)
 
         self.table_headings = tuple(self.dataset.visualize_columns)
-        self.table_content = [{col_name:row[col_name] for col_name in self.table_headings} for i, row in enumerate(self.dataset) if (args.n_examples and i < args.n_examples)]
+        self.table_content = [{col_name:row[col_name] for col_name in self.table_headings} for i, row in enumerate(self.dataset) if (max_entries and i < max_entries)]
 
-    def init_model(self, model_name):
-        try:
-            exec(f"from models import {args.model}")
-        except ImportError:
-            print(f"\nWarning: Cannot import function \"{args.model}\" from directory \"models\", please ensure the function is defined in this file!")
+    def init_model(self):
 
-        self.model = eval(f"{model_name}()")
+        self.model = longformer_finetuned_papers()
 
         if self.curr_checkpoint_dir != None:
-            self.model.load_state_dict(torch.load(pjoin(curr_checkpoint_dir, 'model.pt')))
+            self.model.load_state_dict(torch.load(pjoin(curr_checkpoint_dir, 'model.pth')))
 
     def prune_heads(self, heads_to_prune):
         if heads_to_prune == {} and self.pruned_heads != {}:
-            self.init_model(self.args.model)
+            self.init_model()
         else:
             for layer, heads in heads_to_prune.items():
                 pruned_heads = self.pruned_heads[layer]
@@ -138,7 +132,7 @@ def check_resource_dir(resource_dir):
         ('aggregate_attn.pt', 'Aggregated Attention Matrices', True),
         ('head_importance.pt', 'Head Importance Scores', True),
         ('projection_data.pt', 'Dataset Projection Data', True), 
-        ('model.pt', 'Model Parameters', False)] # By default use the randomly initialized model parameters
+        ('model.pth', 'Model Parameters', False)] # By default use the randomly initialized model parameters
 
  
     for subdir in sub_dirs:
@@ -172,7 +166,7 @@ def get_data():
     t3_vis.curr_checkpoint_dir = flask.request.json['checkpointName']
     checkpoint_dir = pjoin(t3_vis.resource_dir, t3_vis.curr_checkpoint_dir)
     print(checkpoint_dir)
-    model_weights_file = pjoin(checkpoint_dir, 'model.pt')
+    model_weights_file = pjoin(checkpoint_dir, 'model.pth')
     if os.path.exists(model_weights_file):
         t3_vis.model.load_state_dict(torch.load(model_weights_file))
 
@@ -189,14 +183,14 @@ def get_data():
 
     projection_data = torch.load(pjoin(checkpoint_dir, 'projection_data.pt'))
     results = {}
-    results['ids'] = projection_data['id'].tolist()
+    results['ids'] = projection_data['id'].tolist()[:10]
 
     x_name = projection_keys[projection_type][0]
     y_name = projection_keys[projection_type][1]
 
     if (x_name in projection_data.keys() and y_name in projection_data.keys()):
-        results['x'] = projection_data[x_name].tolist()
-        results['y'] = projection_data[y_name].tolist()
+        results['x'] = projection_data[x_name].tolist()[:10]
+        results['y'] = projection_data[y_name].tolist()[:10]
 
         # Avoid scaling t-SNE embeddings
         # TODO: need another option to determine when or when not to scale
@@ -217,7 +211,7 @@ def get_data():
         if projection_data[attr_name].dtype in non_discrete_types:
             projection_data[attr_name] = projection_data[attr_name].astype(int)
         
-        attr_val['values'] = projection_data[attr_name].tolist()
+        attr_val['values'] = projection_data[attr_name].tolist()[:10]
         attr_val['domain'] = projection_data[attr_name].astype(str).unique().tolist()
         results['discrete'].append(attr_val)
 
@@ -277,12 +271,8 @@ if __name__ == '__main__':
     parser.add_argument("--port", default="8888")
     parser.add_argument("--host", default=None)
 
-    # TODO: Let user select the model/dataset from UI interaction
-    parser.add_argument("--model", required=True, help="Method for returning the model")
-    parser.add_argument("--dataset", required=True, help="Method for returning the dataset")
-
     # This should be based on the number of examples saved
-    parser.add_argument("--n_examples", default=5000, type=int, help="The maximum number of data examples to visualize")
+    parser.add_argument("--n_examples", default=100, type=int, help="The maximum number of data examples to visualize")
 
     parser.add_argument("--filter_paddings", default=True, type=bool, help="Filter padding tokens for visualization")
     parser.add_argument("--resource_dir", default=pjoin(cwd, 'resources'), \
