@@ -13,7 +13,7 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
 
   // d3.select('#attentionView').style('position', 'relative');
   // svg.style("position", "absolute")
-  let attn_len = (attn_patten[0].attn.length / 4)**(1/2)
+  // let attn_len = (attn_patten[0].attn.length / 4)**(1/2)
   let marginX = 50;
   let marginY = 20;
   let nLayers = data.length;
@@ -219,9 +219,9 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
   //   .style('margin-left', marginX + 'px')
   //   .style('margin-top', marginY + 'px');
 
-  attn_patten.forEach((attn, i) => {
-    drawImage(attn);
-  })
+  // attn_patten.forEach((attn, i) => {
+  //   drawImage(attn);
+  // })
 
   cellsEnter.append('rect')
     .attr('class', 'border')

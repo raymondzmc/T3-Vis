@@ -345,10 +345,10 @@ const loadData = (state) => {
   server_query.then(response => {
     let importance = response['head_importance'];
     let attn_patten = response['aggregate_attn'];
-
-    attn_patten.forEach(d => {
-      d.attn = JSON.parse(d.attn);
-    })
+    console.log(response)
+    // attn_patten.forEach(d => {
+    //   d.attn = JSON.parse(d.attn);
+    // })
 
     // TODO: Do something to handle the error here
     if (response['x'] === undefined || response['y'] === undefined) {

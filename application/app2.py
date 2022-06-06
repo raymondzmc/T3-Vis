@@ -39,7 +39,7 @@ class T3_Visualization(object):
         # TO DO: Set the pretrained model as an attribute of the model to get called
 
         self.init_model()
-        self.dataset = sst2_train_set()
+        self.dataset = papers_train_set()
         self.num_hidden_layers = self.model.num_hidden_layers
         self.num_attention_heads = self.model.num_attention_heads
         self.pruned_heads = collections.defaultdict(list)
@@ -174,7 +174,7 @@ def get_data():
 
     # TODO: This should be formatted by the user during preprocessing
     projection_keys = {
-        'hidden': (f'layer_{layer}_tsne_1', f'layer_{layer}_tsne_2'),
+        'hidden': (f'projection_{layer}_1', f'projection_{layer}_2'),
         # 'hidden': (f'projection_{layer}_1', f'projection_{layer}_2'),
         'cartography': ('avg_variability', 'avg_confidence'),
         'discrete': ['labels', 'predictions'],
@@ -183,14 +183,14 @@ def get_data():
 
     projection_data = torch.load(pjoin(checkpoint_dir, 'projection_data.pt'))
     results = {}
-    results['ids'] = projection_data['id'].tolist()[:10]
+    results['ids'] = projection_data['id'].tolist()[:100]
 
     x_name = projection_keys[projection_type][0]
     y_name = projection_keys[projection_type][1]
 
     if (x_name in projection_data.keys() and y_name in projection_data.keys()):
-        results['x'] = projection_data[x_name].tolist()[:10]
-        results['y'] = projection_data[y_name].tolist()[:10]
+        results['x'] = projection_data[x_name].tolist()[:100]
+        results['y'] = projection_data[y_name].tolist()[:100]
 
         # Avoid scaling t-SNE embeddings
         # TODO: need another option to determine when or when not to scale
@@ -211,7 +211,7 @@ def get_data():
         if projection_data[attr_name].dtype in non_discrete_types:
             projection_data[attr_name] = projection_data[attr_name].astype(int)
         
-        attr_val['values'] = projection_data[attr_name].tolist()[:10]
+        attr_val['values'] = projection_data[attr_name].tolist()[:100]
         attr_val['domain'] = projection_data[attr_name].astype(str).unique().tolist()
         results['discrete'].append(attr_val)
 
@@ -229,17 +229,17 @@ def get_data():
         attr_val['median'] = projection_data[attr_name].median()
         results['continuous'].append(attr_val)
 
+    # aggregate_attn = torch.load(pjoin(checkpoint_dir, 'aggregate_attn.pt'))
 
-    aggregate_attn = torch.load(pjoin(checkpoint_dir, 'aggregate_attn.pt'))
-
-    # Do this for now, need to send an image file to be more efficient
-    for i in range(len(aggregate_attn)):
-        aggregate_attn[i]['attn'] = json.dumps(aggregate_attn[i]['attn'])
+    # # Do this for now, need to send an image file to be more efficient
+    # for i in range(len(aggregate_attn)):
+    #     aggregate_attn[i]['attn'] = json.dumps(aggregate_attn[i]['attn'])
 
     importance = torch.load(pjoin(checkpoint_dir, 'head_importance.pt'))
     results['head_importance'] = importance.tolist()
-    results['aggregate_attn'] = aggregate_attn
+    # results['aggregate_attn'] = aggregate_attn
 
+    # attn = np.array(results['aggregate_attn'])
     return flask.jsonify(results)
 
 
@@ -267,7 +267,7 @@ if __name__ == '__main__':
     cwd = os.getcwd()
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--debug", default=True)
+    parser.add_argument("--debug", default=False)
     parser.add_argument("--port", default="8888")
     parser.add_argument("--host", default=None)
 

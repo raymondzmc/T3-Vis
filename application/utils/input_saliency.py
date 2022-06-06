@@ -132,9 +132,10 @@ def bert_lrp(model, out_relevance, grad=None):
         torch.nn.Dropout,
         torch.nn.Softmax,
         torch.nn.Tanh,
-        BertEmbeddings,
+        # BertEmbeddings,
+        LongformerEmbeddings,
     ) 
-
+    pdb.set_trace()
     module_list = []
 
     # Invert the module list
@@ -177,10 +178,10 @@ def compute_input_saliency(model, input_len, logits):
         prediction_mask[:, i] = 1
         out_relevance = logits * prediction_mask
 
-        relevance = bert_lrp(model, out_relevance).sum(-1).squeeze(0).detach().abs()
-        saliency['lrp'].append(normalize_tensor(relevance).tolist())
 
-        embedding_output = model.bert.embeddings.word_embeddings.activation
+        # relevance = bert_lrp(model, out_relevance).sum(-1).squeeze(0).detach().abs()
+        # saliency['lrp'].append(normalize_tensor(relevance).tolist())
+        embedding_output = model.longformer.embeddings.word_embeddings.activation
 
         # Replace this hard-code line later
         grad = torch.autograd.grad(out_relevance.sum(), embedding_output, retain_graph=True)[0]
