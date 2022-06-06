@@ -173,7 +173,7 @@ ul.token-container li{
     font-size: 2rem;
 }
 
-ul.token-container li:hover, {
+ul.token-container li:hover {
     background-color: #e6e6e6;
 }
 
