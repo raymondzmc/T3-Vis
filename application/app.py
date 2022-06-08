@@ -47,6 +47,10 @@ class T3_Visualization(object):
         self.init_model(args.model)
         self.dataset = eval(f"{args.dataset}()")
         self.num_hidden_layers = self.model.num_hidden_layers
+        # test
+        print("NUM_HIDDEN_LAYERS ", self.num_hidden_layers)
+        # self.model.num_attention_heads = 24
+        #
         self.num_attention_heads = self.model.num_attention_heads
         self.pruned_heads = collections.defaultdict(list)
 
@@ -104,7 +108,8 @@ class T3_Visualization(object):
 
         output = self.model(**model_input, output_attentions=True)
         logits = output['logits']
-        input_saliency = compute_input_saliency(self.model, len(example['tokens']), logits)
+        # print("example ", example)
+        input_saliency = compute_input_saliency(self.model, input_len, example['tokens'], logits)
         output['loss'].backward(retain_graph=True)
         results['loss'] = output['loss'].item()
         results['input_saliency'] = input_saliency

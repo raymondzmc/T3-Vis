@@ -42,7 +42,7 @@ let state = {
   'instance_pattern': null,
 
   
-  'interpMethod': $('#interpretationSelect').find(':checked').val(),
+  'interpMethod': $('#interpSaliencySelect').find(':checked').val(),
 
   'pruned_heads': {},
 
@@ -162,11 +162,17 @@ $('#compute-instance').on('click', function(event) {
 
 
 // Instance Investigation View
-$("#interpretationSelect").change(function(){
+$("#interpSaliencySelect").change(function(){
   let value = $(this).find(':checked').val();
   state.interpMethod = value;
+  console.log(state.interpMethod);
 });
 
+$("#interpAttentionSelect").change(function() {
+  alert("For instance attention: please select a head from a layer");
+  state.interpMethod = 'attention';
+  console.log(state.interpMethod);
+});
 
 // Projection View
 $('select').on('change', function(){

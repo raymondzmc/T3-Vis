@@ -333,12 +333,12 @@
         
         <div class="row inline-block align-items-center vis-row">
             <!-- Attention View -->
-            <div class="card col-3">
+            <div class="card col-12">
                 <div class="card-header">
                     <h2> Attention Heads</h2>
                 </div>
                 <div class="row">
-                    <div class="col-7">
+                    <div class="col-8">
                         <div class="btn-group card-input" role="group" id="attentionViewSelect">
                             <div class="input-group-text">Display</div>
                             <input type="radio" class="btn-check" name="attention-view" value="importance" id="headImportance" autocomplete="off" checked="true" />
@@ -348,7 +348,7 @@
                             <label class="btn btn-outline-primary" for="attentionPattern">Attention Pattern</label>
                         </div>
                     </div>
-                    <div class="col-5">
+                    <div class="col-4">
                         <div class="btn-group card-input" role="group" id="attentionScaleSelect">
                             <div class="input-group-text">Scale</div>
                             <input type="radio" class="btn-check" name="attention-scale" value="aggregate" id="aggregateAttention" autocomplete="off" checked="true" />
@@ -387,16 +387,20 @@
                 <div class="card-block">
                     <div class="row">
                         <div class="col-7">
-                            <div class="btn-group card-input" role="group" id="interpretationSelect">
-                                <div class="input-group-text">Interpretation Method</div>
+                            <div class="btn-group card-input" role="group" id="interpSaliencySelect">
+                                <div class="input-group-text">Saliency-based Interpretation</div>
+                                <!--
                                 <input type="radio" class="btn-check" value="attention" name="interpretation" id="interpAttention" autocomplete="off" checked="true" />
                                 <label class="btn btn-outline-primary" for="interpAttention">Attention</label>
-
+                                -->
                                 <input type="radio" class="btn-check" value="inputGrad" name="interpretation" id="interpInputGrad"  autocomplete="off"/>
                                 <label class="btn btn-outline-primary" for="interpInputGrad">Input Gradients</label>
 
                                 <input type="radio" class="btn-check" value="lrp" name="interpretation" id="interpLrp" autocomplete="off"/>
                                 <label class="btn btn-outline-primary" for="interpLrp">LRP</label>
+
+                                <input type="radio" class="btn-check" value="integratedGrad" name="interpretation" id="interpIntegratedGrad" autocomplete="off"/>
+                                <label class="btn btn-outline-primary" for="interpIntegratedGrad">Integrated Gradients</label>
                             </div>
                         </div>
 <!--                         <div class="col-5">
@@ -408,6 +412,14 @@
                                 <label class="btn btn-outline-primary" for="interpretation-right">Right</label>
                             </div>
                         </div> -->
+                    </div>
+                    <div class="row">
+                        <div class="col-7">
+                            <div class="btn-group card-input" role="group" id="interpAttentionSelect">
+                                <div class="input-group-text">Attention Attribution</div>
+                                <input type="radio" class="btn-check" value="attention" name="interpretation" id="interpAttention" autocomplete="off" />
+                                <label class="btn btn-outline-primary" for="interpAttention">Attention</label>
+                            </div>
                     </div>
                     <div class="row align-items-center" >
                         <div class="col-12" id="instanceView">
