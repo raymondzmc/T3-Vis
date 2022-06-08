@@ -174,7 +174,8 @@ def bert_lrp(model, out_relevance, grad=None):
 
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
-
+# global var for target class # todo: find a workaround
+target = 0
 
 # helper function for constructing baselines (references) for word tokens
 def construct_input_ref_pair(input_tokens, ref_token_id, sep_token_id, cls_token_id):
@@ -204,7 +205,8 @@ def bert_classifier_predict(model, inputs):
 # a customized forward function for bert classification
 def bert_classifier_forward(inputs):
     preds = bert_classifier_predict(model, inputs)
-    return torch.softmax(preds, dim=1)[:, 1]  # for positive attribution
+    # print("target", target)
+    return torch.softmax(preds, dim=1)[:, target]  # 1 for positive attribution; 0 for negative
 
 
 def bert_ig(input_tokens):
@@ -224,6 +226,7 @@ def bert_ig(input_tokens):
 
     attributions, delta = lig.attribute(inputs=input_ids,
                                         baselines=ref_input_ids,
+                                        # target=index,
                                         return_convergence_delta=True)
     attributions_sum = summarize_attributions(attributions)
 
@@ -234,7 +237,7 @@ def compute_input_saliency(model, input_len, input_tokens, logits):
     model.zero_grad()
 
     dim = 1  # Dimension for data
-
+    global target
     output_len = logits.size(dim)
 
     saliency = {
@@ -244,10 +247,6 @@ def compute_input_saliency(model, input_len, input_tokens, logits):
     }
     # bert_model_wrapper = BertModelWrapper(model)
     # ig = IntegratedGradients(bert_model_wrapper)
-    input_tokens = input_tokens[:input_len]
-    ig_attributions = bert_ig(input_tokens)
-    # print("attributions", len(ig_attributions))
-    # print(ig_attributions)
 
     for i in range(output_len):
         model.zero_grad()
@@ -266,7 +265,14 @@ def compute_input_saliency(model, input_len, input_tokens, logits):
         grad_input = (grad * embeddings).sum(-1).squeeze(0).detach().abs()
         saliency['inputGrad'].append(normalize_tensor(grad_input).tolist())
 
+        input_tokens = input_tokens[:input_len]
+        # assign target to be current index, before initializing lig obj in bert_ig()
+        target = i
+        ig_attributions = bert_ig(input_tokens)
         saliency['integratedGrad'].append(ig_attributions.tolist())
+        # print("i", i)
+        # print(ig_attributions)
+
         # mock for testing
         # saliency['integratedGrad'].append(normalize_tensor(grad_input).tolist())
 
