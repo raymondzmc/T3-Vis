@@ -165,12 +165,12 @@ ul.token-container {
 ul.token-container li{
     display: inline-block;
     min-width: 20px;
-    padding: 5px;
+    padding: 1px;
     background-color: #eee;
-    margin: 2px;
+    margin: 1px;
     font-family: Source Sans Pro,sans-serif;
     font-weight: 900;
-    font-size: 2rem;
+    font-size: .8rem;
 }
 
 ul.token-container li:hover, {

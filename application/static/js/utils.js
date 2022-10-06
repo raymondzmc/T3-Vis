@@ -3,7 +3,8 @@ import { renderImportanceFromState } from './component-view.js';
 
 export const selectExample = (id, state) => {
   $('#loader').show();
-  let exampleID = (typeof(id) === 'string')? +id.split('-')[1]: id;
+  // let exampleID = (typeof(id) === 'string')? +id.split('-')[1]: id;
+  let exampleID = id;
 
   // // Unselect all previous selections
   // d3.selectAll('.example.selected')
@@ -16,7 +17,7 @@ export const selectExample = (id, state) => {
   //   .attr('r', 10);
   state.selectedIdx.clear();
   state.selectedIdx.add(id);
-
+  // console.log(exampleID)
   state['example_id'] = exampleID;
 
   // if (state['checkpoint'] === 0 ){
@@ -42,11 +43,11 @@ export const selectExample = (id, state) => {
       $("#instanceAttention").prop("disabled", false);
       state.tokenIdx = null;
       state = renderInstanceView(
-        response['tokens'],
-        response['output'],
+        response['input_tokens'],
+        response['output_tokens'],
         response['input_saliency'],
-        response['label'],
-        response['loss'],
+        // response['label'],
+        // response['loss'],
         '#input-token-container',
         '#output-token-container',
         state,
@@ -54,7 +55,7 @@ export const selectExample = (id, state) => {
 
       let attentionSVG = d3.select("#attention-svg");
 
-      state = renderImportanceFromState(attentionSVG, state);
+      // state = renderImportanceFromState(attentionSVG, state);
       $('#loader').hide();
   });
   return state;

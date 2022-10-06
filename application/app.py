@@ -54,6 +54,10 @@ class T3_Visualization(object):
         self.table_headings = tuple(self.dataset.visualize_columns)
         self.table_content = [{col_name:row[col_name] for col_name in self.table_headings} for i, row in enumerate(self.dataset) if (args.n_examples and i < args.n_examples)]
 
+
+        # Temp
+        self.decoder_projections = torch.load(pjoin(self.resource_dir, 'decoder_projections.pt'))
+
     def init_model(self, model_name):
         try:
             exec(f"from models import {args.model}")
@@ -83,18 +87,18 @@ class T3_Visualization(object):
         results = {}
 
         self.model.train()
-        self.model.zero_grad()
-        register_hooks(self.model)
-
+        # self.model.zero_grad()
+        # register_hooks(self.model)
         example = self.dataset[idx]
 
         for col in self.dataset.input_columns:
-            example[col] = torch.tensor(example[col]).unsqueeze(0)
-
-        for col in self.dataset.target_columns:
             example[col] = torch.tensor(example[col])
 
-        model_input = {k: v for (k, v) in example.items() if k in self.dataset.input_columns + self.dataset.target_columns}
+
+        # for col in self.dataset.target_columns:
+        #     example[col] = torch.tensor(example[col])
+
+        model_input = {k: v for (k, v) in example.items() if k in self.dataset.input_columns}
         # [example[key] = torch.tensor() for ]
         if self.filter_paddings:
             input_len = example['attention_mask'].sum().item()
@@ -102,17 +106,32 @@ class T3_Visualization(object):
             for input_key in self.dataset.input_columns:
                 model_input[input_key] = model_input[input_key][:, :input_len]
 
-        output = self.model(**model_input, output_attentions=True)
-        logits = output['logits']
-        input_saliency = compute_input_saliency(self.model, len(example['tokens']), logits)
-        output['loss'].backward(retain_graph=True)
-        results['loss'] = output['loss'].item()
-        results['input_saliency'] = input_saliency
-        results['output'] = output['logits'].squeeze(0).tolist()
-        results['attn'] = format_attention(output['attentions'], self.num_attention_heads, self.pruned_heads)
-        results['attn_pattern'] = format_attention_image(np.array(results['attn']))
-        results['head_importance'] = normalize(get_taylor_importance(self.model)).tolist()
-        results['tokens'] = example['tokens'][:input_len] if self.filter_paddings else example['tokens']
+        model_input['max_length'] = 512
+        model_input['return_dict_in_generate'] = True
+        model_input['output_attentions'] = False
+
+        results['decoder_projections'] = {}
+        results['decoder_projections']['x'] = self.decoder_projections[idx][:, 0].tolist()
+        results['decoder_projections']['y'] = self.decoder_projections[idx][:, 1].tolist()
+        # batch['output_hidden_states'] = True
+
+        # output = self.model.generate(**model_input)
+        # output_ids = output['sequences']
+        output_ids = ['test']
+
+        # logits = output['logits']
+        # input_saliency = compute_input_saliency(self.model, len(example['tokens']), logits)
+        # output['loss'].backward(retain_graph=True)
+        # results['loss'] = output['loss'].item()
+        results['loss'] = 0
+        # results['input_saliency'] = input_saliency
+        results['input_saliency'] = []
+        # results['output'] = output['sequences'].squeeze(0).tolist()
+        # results['attn'] = format_attention(output['attentions'], self.num_attention_heads, self.pruned_heads)
+        # results['attn_pattern'] = format_attention_image(np.array(results['attn']))
+        # results['head_importance'] = normalize(get_taylor_importance(self.model)).tolist()
+        results['input_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(example['input_ids'].squeeze(0))
+        results['output_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(output['sequences'].squeeze(0))
 
         return results
 
@@ -170,33 +189,36 @@ def get_data():
         flask.request.json['checkpointName'] = 'epoch_2'
 
     t3_vis.curr_checkpoint_dir = flask.request.json['checkpointName']
-    checkpoint_dir = pjoin(t3_vis.resource_dir, t3_vis.curr_checkpoint_dir)
-    print(checkpoint_dir)
-    model_weights_file = pjoin(checkpoint_dir, 'model.pt')
-    if os.path.exists(model_weights_file):
-        t3_vis.model.load_state_dict(torch.load(model_weights_file))
+
+    if t3_vis.curr_checkpoint_dir != None:
+        checkpoint_dir = pjoin(t3_vis.resource_dir, t3_vis.curr_checkpoint_dir)
+        model_weights_file = pjoin(checkpoint_dir, 'model.pt')
+        if os.path.exists(model_weights_file):
+            t3_vis.model.load_state_dict(torch.load(model_weights_file))
 
     layer = int(flask.request.json['hiddenLayer'])
 
     # TODO: This should be formatted by the user during preprocessing
     projection_keys = {
-        'hidden': (f'layer_{layer}_tsne_1', f'layer_{layer}_tsne_2'),
+        'hidden': (f'projection_{layer}_0', f'projection_{layer}_1'),
         # 'hidden': (f'projection_{layer}_1', f'projection_{layer}_2'),
         'cartography': ('avg_variability', 'avg_confidence'),
         'discrete': ['labels', 'predictions'],
         'continuous': ['gt_confidence', 'loss'],
     }
 
-    projection_data = torch.load(pjoin(checkpoint_dir, 'projection_data.pt'))
+    # projection_data = torch.load(pjoin(checkpoint_dir, 'projection_data.pt'))
+    projection_data = torch.load(pjoin('resources', 'encoder_projection_data.pt'))
+
     results = {}
-    results['ids'] = projection_data['id'].tolist()
+    results['ids'] = projection_data['idx'].tolist()
 
     x_name = projection_keys[projection_type][0]
     y_name = projection_keys[projection_type][1]
 
     if (x_name in projection_data.keys() and y_name in projection_data.keys()):
-        results['x'] = projection_data[x_name].tolist()
-        results['y'] = projection_data[y_name].tolist()
+        results['x'] = list(projection_data[x_name])
+        results['y'] = list(projection_data[y_name])
 
         # Avoid scaling t-SNE embeddings
         # TODO: need another option to determine when or when not to scale
@@ -236,15 +258,15 @@ def get_data():
         results['continuous'].append(attr_val)
 
 
-    aggregate_attn = torch.load(pjoin(checkpoint_dir, 'aggregate_attn.pt'))
+    # aggregate_attn = torch.load(pjoin(checkpoint_dir, 'aggregate_attn.pt'))
 
     # Do this for now, need to send an image file to be more efficient
-    for i in range(len(aggregate_attn)):
-        aggregate_attn[i]['attn'] = json.dumps(aggregate_attn[i]['attn'])
+    # for i in range(len(aggregate_attn)):
+    #     aggregate_attn[i]['attn'] = json.dumps(aggregate_attn[i]['attn'])
 
-    importance = torch.load(pjoin(checkpoint_dir, 'head_importance.pt'))
-    results['head_importance'] = importance.tolist()
-    results['aggregate_attn'] = aggregate_attn
+    # importance = torch.load(pjoin(checkpoint_dir, 'head_importance.pt'))
+    # results['head_importance'] = importance.tolist()
+    # results['aggregate_attn'] = aggregate_attn
 
     return flask.jsonify(results)
 
@@ -255,16 +277,16 @@ def eval_one():
     Evaluate a single example in the back-end, specified by the example_id
     """
     sample_name = flask.request.json['example_id']
-    # pdb.set_trace()
+
     results = {}
     results['attn'] = {}
 
-    heads_to_prune = {int(k): v for k, v in flask.request.json['pruned_heads'].items()}
+    # heads_to_prune = {int(k): v for k, v in flask.request.json['pruned_heads'].items()}
 
-    if heads_to_prune != {}: 
-        t3_vis.prune_heads(heads_to_prune)
+    # if heads_to_prune != {}: 
+    #     t3_vis.prune_heads(heads_to_prune)
 
-    results = t3_vis.evaluate_example(int(sample_name))
+    results = t3_vis.evaluate_example(sample_name)
     return flask.jsonify(results)
 
 
@@ -282,7 +304,7 @@ if __name__ == '__main__':
     parser.add_argument("--dataset", required=True, help="Method for returning the dataset")
 
     # This should be based on the number of examples saved
-    parser.add_argument("--n_examples", default=5000, type=int, help="The maximum number of data examples to visualize")
+    parser.add_argument("--n_examples", default=10, type=int, help="The maximum number of data examples to visualize")
 
     parser.add_argument("--filter_paddings", default=True, type=bool, help="Filter padding tokens for visualization")
     parser.add_argument("--resource_dir", default=pjoin(cwd, 'resources'), \

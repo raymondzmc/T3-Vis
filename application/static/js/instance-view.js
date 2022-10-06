@@ -34,7 +34,7 @@ const renderColor = (color, isAttention, state) => {
     })
 }
 
-export const renderInstanceView = (tokens, output, inputSaliency, label, loss, inputContainer, outputContainer, state) => {
+export const renderInstanceView = (tokens, output, inputSaliency, inputContainer, outputContainer, state) => {
 
   let inputs = d3.select(inputContainer).selectAll('li.input-token').data(tokens);
   let outputs = d3.select(outputContainer).selectAll('li.output-logit').data(output);
@@ -42,17 +42,17 @@ export const renderInstanceView = (tokens, output, inputSaliency, label, loss, i
   let inputsEnter = inputs.enter().append('li');
   let outputsEnter = outputs.enter().append('li');
   d3.select('#input-container-title').text(`Input Tokens:`)
-  d3.select('#output-container-title').text(`Output Logits:`)
+  d3.select('#output-container-title').text(`Output Tokens:`)
   let metadataList = d3.select('#instance-metadata-list');
   
   metadataList.selectAll('li').remove()
-  metadataList.append('li')
-    .classed('list-group-item', true)
-    .text(`Ground Truth Label: ${label}`);
+  // metadataList.append('li')
+  //   .classed('list-group-item', true)
+  //   .text(`Ground Truth Label: ${label}`);
 
-  metadataList.append('li')
-    .classed('list-group-item', true)
-    .text(`Loss: ${Math.round(loss * 1000) / 1000}`);
+  // metadataList.append('li')
+  //   .classed('list-group-item', true)
+  //   .text(`Loss: ${Math.round(loss * 1000) / 1000}`);
 
   inputsEnter.merge(inputs)
       .transition(300)
@@ -63,8 +63,8 @@ export const renderInstanceView = (tokens, output, inputSaliency, label, loss, i
 
   outputsEnter.merge(outputs)
       .transition(300)
-      .text(d => `${Math.round(d * 1000) / 1000}`)
-      .attr('id', (d, i) => `output-${i}`)
+      .text(d => d)
+      .attr('id', (d, i) => `output-token-${i}`)
       .attr('class', (d, i) => `output-logit output-${i} clickable`)
       .style('background-color', '#eee');
 

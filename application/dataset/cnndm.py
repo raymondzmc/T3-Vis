@@ -2,7 +2,7 @@ import torch
 import copy
 
 from datasets import load_dataset
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, PegasusTokenizer
 
 import pdb
 
@@ -137,8 +137,10 @@ def preprocess_function(tokenizer, example):
     
     return example
 
-
-def get_cnn_dm(dataset_type):
+def preprocess_function_abs(tokenizer, examples):
+    article = examples['article']
+    examples.update(tokenizer(article, truncation=True, padding="longest", return_tensors="pt"))
+    return examples
 
 
 
@@ -152,6 +154,20 @@ def cnndm_train_set():
     setattr(dataset, 'visualize_columns', visualize_columns)
     setattr(dataset, 'input_columns', ['input_ids', 'attention_mask', 'token_type_ids'])
     setattr(dataset, 'target_columns', ['labels'])
+    setattr(dataset, 'max_length', max_length)
+    setattr(dataset, 'tokenizer', tokenizer)
+    return dataset
+
+def cnndm_test_set():
+    max_length = 1024
+    dataset = load_dataset('cnn_dailymail', '3.0.0', ignore_verifications=True)['test']
+    visualize_columns = dataset.column_names
+    tokenizer = PegasusTokenizer.from_pretrained('google/pegasus-cnn_dailymail')
+    dataset = dataset.map(lambda x: preprocess_function_abs(tokenizer, x), batched=False)
+
+    setattr(dataset, 'visualize_columns', visualize_columns)
+    setattr(dataset, 'input_columns', ['input_ids', 'attention_mask'])
+    setattr(dataset, 'target_columns', ['highlights'])
     setattr(dataset, 'max_length', max_length)
     setattr(dataset, 'tokenizer', tokenizer)
     return dataset

@@ -28,7 +28,8 @@ let state = {
   //   1: true,
   // },
 
-  'checkpointName': $("#checkpointName option:selected").val(),
+  // 'checkpointName': $("#checkpointName option:selected").val(),
+  'checkpointName': null,
 
   'attentionIdx': [null, null],
   'inputIdx': null,
@@ -283,7 +284,7 @@ $('select').on('change', function(){
 })
 
 
-const projectionWidth = 1200;
+const projectionWidth = 900;
 const projectionHeight = 500;
 const projectionSVG = d3.select("#projectionView")
   .append('svg')
@@ -343,23 +344,23 @@ const loadData = (state) => {
   })
 
   server_query.then(response => {
-    let importance = response['head_importance'];
-    let attn_patten = response['aggregate_attn'];
+    // let importance = response['head_importance'];
+    // let attn_patten = response['aggregate_attn'];
 
-    attn_patten.forEach(d => {
-      d.attn = JSON.parse(d.attn);
-    })
+    // attn_patten.forEach(d => {
+    //   d.attn = JSON.parse(d.attn);
+    // })
 
-    // TODO: Do something to handle the error here
-    if (response['x'] === undefined || response['y'] === undefined) {
-      $('#loader').hide();
-      return;
-    }
+    // // TODO: Do something to handle the error here
+    // if (response['x'] === undefined || response['y'] === undefined) {
+    //   $('#loader').hide();
+    //   return;
+    // }
 
-    state = renderImportance(importance, attn_patten, attentionSVG, 700, 500, state);
+    // state = renderImportance(importance, attn_patten, attentionSVG, 700, 500, state);
 
-    state.aggregate_importance = importance;
-    state.aggregate_pattern = attn_patten;
+    // state.aggregate_importance = importance;
+    // state.aggregate_pattern = attn_patten;
 
 
     // TODO: The following code into a function
