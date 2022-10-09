@@ -63,7 +63,7 @@ def main(args):
 
 
     for i, example in enumerate(tqdm(dataset)):
-        if i == 1000: break
+        if i == 200: break
         article = example['article']
         highlights = example['highlights']
         _id = example['id']
