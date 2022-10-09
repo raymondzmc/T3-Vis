@@ -69,9 +69,8 @@
                 </a>
             </div>
         </div>
-
         <!-- User selection tab -->
-        <div class="row" id="user-selection">
+<!--         <div class="row" id="user-selection">
             <form class="row row-cols-lg-auto g-3 align-items-center align-middle" >
                 <div class="col-12">
                     <div class="input-group">
@@ -109,15 +108,15 @@
                     </div>
                 </div>
             </form>
-        </div>
+        </div> -->
 
         <!-- Main visualization -->
         <div class="row inline-block align-items-center justify-content-evenly vis-row">
             <!-- Projection View -->
-            <div class="card col-md-6 pull-left">
+            <div class="card col-md-9 pull-left">
                 <div class="card-header">
-
-                    <ul class="nav nav-tabs card-header-tabs" id="projectionTabs" role="tablist">
+                    <h2> Hidden State Projection </h2>
+                    <!-- <ul class="nav nav-tabs card-header-tabs" id="projectionTabs" role="tablist">
                         <li class="nav-item">
                             <a class="nav-link active" aria-current="true" data-bs-toggle="tab" value="hidden" href="#">
                                 <h2> Hidden States </h2>
@@ -129,109 +128,16 @@
                             </a>
                         </li>
                     </ul>
-
+ -->
                 </div>
                 <div class="card-block">
-                    <div class="row" id="projection-options-compare" style="display: none;">
 
-                        <div class="col-6" id="projection-options-left">
-                            <div class="row">
-                                <div class="col-3">
-                                    <div class="card-input input-group">
-                                        <div class="input-group-text">Layer</div> 
-                                        <select class="form-select" id="hiddenLayerLeft">
-                                            <option value=0>Embedding</option>
-                                            <option value=1>1</option>
-                                            <option value=2>2</option>
-                                            <option value=3>3</option>
-                                            <option value=4>4</option>
-                                            <option value=5>5</option>
-                                            <option value=6>6</option>
-                                            <option value=7>7</option>
-                                            <option value=8>8</option>
-                                            <option value=9>9</option>
-                                            <option value=10>10</option>
-                                            <option value=11>11</option>
-                                            <option selected value=12>12</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-3">
-                                    <div class="card-input input-group">
-                                        <div class="input-group-text">Color</div> 
-                                        <select class="form-select" id="projectionColorLeft">
-                                            <option selected value='None'>None</option>
-                                        </select>
-                                    </div>
-                                </div>
-<!--                                 <div class="col-4">
-                                    <div class="card-input input-group">
-                                        <div class="input-group-text">Checkpoint</div> 
-                                        <select class="form-select" id="checkpointNameLeft">
-                                            <option value='pretrained'>pretrained</option>
-                                            <option value='epoch_1'>epoch_1</option>
-                                            <option value='epoch_2'>epoch_2</option>
-                                            <option value='epoch_3'>epoch_3</option>
-                                        </select>
-                                    </div>
-                                </div> -->
-                            </div>
-                        </div>
-                        <div class="col-6" id="projection-options-right">
-                            <div class="row">
-                                <div class="col-3">
-                                    <div class="card-input input-group">
-                                        <div class="input-group-text">Layer</div> 
-                                        <select class="form-select" id="hiddenLayerRight">
-                                            <option value=0>Embedding</option>
-                                            <option value=1>1</option>
-                                            <option value=2>2</option>
-                                            <option value=3>3</option>
-                                            <option value=4>4</option>
-                                            <option value=5>5</option>
-                                            <option value=6>6</option>
-                                            <option value=7>7</option>
-                                            <option value=8>8</option>
-                                            <option value=9>9</option>
-                                            <option value=10>10</option>
-                                            <option value=11>11</option>
-                                            <option selected value=12>12</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-3">
-                                    <div class="card-input input-group">
-                                        <div class="input-group-text">Color</div> 
-                                        <select class="form-select" id="projectionColorRight">
-                                            <option selected value='None'>None</option>
-                                        </select>
-                                    </div>
-                                </div>
-<!--                                 <div class="col-4">
-                                    <div class="card-input input-group">
-                                        <div class="input-group-text">Checkpoint</div> 
-                                        <select class="form-select" id="checkpointNameRight">
-                                            <option value='pretrained'>pretrained</option>
-                                            <option value='epoch_1'>epoch_1</option>
-                                            <option value='epoch_2'>epoch_2</option>
-                                            <option value='epoch_3'>epoch_3</option>
-                                        </select>
-                                    </div>
-                                </div> -->
-                            </div>
-                        </div>
-<!--                         <div class="col-2">
-                            <div class="card-input input-group">
-                                <button id="resetZoom" type="button" class="btn btn-primary">Reset Zoom</button>
-                            </div>
-                        </div> -->
-                    </div>
                     <div class="row" id="projection-options">
 
                         <div class="col-6">
                         <div class="row">
 
-                        <div class="col-4">
+<!--                         <div class="col-4">
                             <div class="card-input input-group">
                                 <div class="input-group-text">Layer</div> 
                                 <select class="form-select" id="hiddenLayer">
@@ -240,7 +146,7 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                        </div>
+                        </div> -->
                         <div class="col-6">
                             <div class="card-input input-group">
                                 <div class="input-group-text">Color</div> 
@@ -265,6 +171,11 @@
                         <div class="col-2">
                             <div class="card-input input-group">
                                 <button id="resetZoom" type="button" class="btn btn-primary">Reset Zoom</button>
+                            </div>
+                        </div>
+                        <div class="col-2">
+                            <div class="card-input input-group">
+                                <button id="projectionGoBack" type="button" class="btn btn-primary">Back</button>
                             </div>
                         </div>
                     </div>
@@ -320,24 +231,19 @@
             </div>
 
             <!-- Content View -->
-            <div class="card col-md-6 pull-right">
+<!--             <div class="card col-md-6 pull-right">
                 <div class="card-header">
                     <h2> Data Table </h2>
                 </div>
                 <div class="card-block" id="contentView">
                     {{ table(content, headings) }}
                 </div>
-            </div>
-        </div>
-
-        
-        <div class="row inline-block align-items-center vis-row">
-            <!-- Attention View -->
+            </div> -->
             <div class="card col-3">
                 <div class="card-header">
-                    <h2> Attention Heads</h2>
+                    <h2>Decoder Attention Heads</h2>
                 </div>
-                <div class="row">
+<!--                 <div class="row justify-content-end">
                     <div class="col-7">
                         <div class="btn-group card-input" role="group" id="attentionViewSelect">
                             <div class="input-group-text">Display</div>
@@ -358,26 +264,15 @@
                             <label class="btn btn-outline-primary" for="instanceAttention">Instance</label>
                         </div>
                     </div>
-                </div>
-                <div class="row">
-                    <div class="col-5">
-                        <div class="btn-group card-input" role="group">
-                            <button type="button" id="reset-heads" class="btn btn-secondary active">Reset Heads</button>
-                            <button type="button" id="compute-instance" class="btn btn-primary active">Compute</button>
-                        </div>
-                    </div>
-<!--                     <div class="col-5">
-                        <div class="btn-group card-input" role="group" id="attention-comparison-select">
-                            <div class="input-group-text compare-toggle">Compare:</div>
-                            <input type="radio" class="btn-check" name="attention-comparison-select" value="left" id="attention-left" autocomplete="off" checked="true" />
-                            <label class="btn btn-outline-primary" for="attention-left">Left</label>
-                            <input type="radio" class="btn-check" name="attention-comparison-select" value="right" id="attention-right" autocomplete="off" disabled="true" />
-                            <label class="btn btn-outline-primary" for="attention-right">Right</label>
-                        </div>
-                    </div> -->
-                </div>
-                <div class="row" id="attentionView"></div>
+                </div> -->
+                <div class="row" id="decoderAttentionView"></div>
             </div>
+        </div>
+
+        
+        <div class="row inline-block align-items-center vis-row">
+            <!-- Attention View -->
+            
 
             <!-- Instance View -->
             <div class="card col-9">
@@ -399,15 +294,6 @@
                                 <label class="btn btn-outline-primary" for="interpLrp">LRP</label>
                             </div>
                         </div>
-<!--                         <div class="col-5">
-                            <div class="btn-group card-input" role="group" id=interpretation-comparison-select>
-                                <div class="input-group-text compare-toggle">Compare:</div>
-                                <input type="radio" class="btn-check" name="interpretation-comparison-select" value="left" id="interpretation-left" autocomplete="off" checked="true" />
-                                <label class="btn btn-outline-primary" for="interpretation-left">Left</label>
-                                <input type="radio" class="btn-check" name="interpretation-comparison-select" value="right" id="interpretation-right" autocomplete="off" disabled="true" />
-                                <label class="btn btn-outline-primary" for="interpretation-right">Right</label>
-                            </div>
-                        </div> -->
                     </div>
                     <div class="row align-items-center" >
                         <div class="col-12" id="instanceView">
@@ -419,13 +305,16 @@
                                 <ul class="list-group list-group-flush" id="instance-metadata-list">
                             </div>
                         </div>
-<!--                         <div class="d-flex justify-content-center">
-                            <div class="spinner-border" role="status">
-                                <span class="sr-only">Loading...</span>
-                            </div>
-                        </div> -->
                     </div>
                 </div>
+            </div>
+
+
+            <div class="card col-3">
+                <div class="card-header">
+                    <h2>Encoder Attention Heads</h2>
+                </div>
+                <div class="row" id="encoderAttentionView"></div>
             </div>
         </div>
     </div>

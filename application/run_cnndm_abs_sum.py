@@ -121,7 +121,7 @@ def main(args):
 
     aggregate_decoder_attn = aggregate_decoder_attn[:, :, :max_output_len, :max_output_len] /\
                              output_position_count.cpu().numpy()[:max_output_len]
-                             
+
     cross_attn_position_count[cross_attn_position_count == 0] = 1
     aggregate_cross_attn = aggregate_cross_attn[:, :, :max_output_len, :max_input_len] /\
                            cross_attn_position_count.cpu().numpy()[:max_output_len, :max_input_len]
@@ -129,6 +129,14 @@ def main(args):
     torch.save(aggregate_encoder_attn, 'aggregate_encoder_attn.pt')
     torch.save(aggregate_decoder_attn, 'aggregate_decoder_attn.pt')
     torch.save(aggregate_cross_attn, 'aggregate_cross_attn.pt')
+
+    encoder_attn_img = format_attention_image(aggregate_encoder_attn)
+    decoder_attn_img = format_attention_image(aggregate_decoder_attn)
+    cross_attn_img = format_attention_image(aggregate_cross_attn)\
+    torch.save(encoder_attn_img, 'aggregate_encoder_attn_img.pt')
+    torch.save(decoder_attn_img, 'aggregate_decoder_attn_img.pt')
+    torch.save(cross_attn_img, 'aggregate_cross_attn_img.pt')
+
     pdb.set_trace()
     #   # # (1 + n_layer) x batch_size x input_len x hidden_dim
     #   encoder_hidden_states = output.encoder_hidden_states[-1][0]

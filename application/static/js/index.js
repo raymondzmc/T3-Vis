@@ -1,6 +1,6 @@
-import { renderProjection } from './projection-view.js';
+import { renderProjection, selectExample} from './projection-view.js';
 import { renderImportanceFromState, renderImportance } from './component-view.js'
-import { selectExample } from './utils.js'
+// import { selectExample } from './utils.js'
 
 let state = {
   'corpus': 'sst_demo',
@@ -35,12 +35,18 @@ let state = {
   'inputIdx': null,
   'outputIdx': null,
   'attention': null,
-  'attentionView': $('#attentionViewSelect').find(':checked').val(),
-  'attentionScale': $('#attentionScaleSelect').find(':checked').val(),
-  'aggregate_importance': null,
-  'instance_importance': null,
-  'aggregate_pattern': null,
-  'instance_pattern': null,
+
+  'encoderAttentionView': $('#encoderAttentionViewSelect').find(':checked').val(),
+  'encoderAttentionScale': $('#encoderAttentionScaleSelect').find(':checked').val(),
+  'decoderAttentionView': $('#decoderAttentionViewSelect').find(':checked').val(),
+  'decoderAttentionScale': $('#decoderAttentionScaleSelect').find(':checked').val(),
+
+  'decoder_importance': null,
+  'encoder_importance': null,
+
+  // 'instance_importance': null,
+  // 'aggregate_pattern': null,
+  // 'instance_pattern': null,
 
   
   'interpMethod': $('#interpretationSelect').find(':checked').val(),
@@ -48,6 +54,9 @@ let state = {
   'pruned_heads': {},
 
   'comparisonState': null,
+
+  // Seq2seq parameters
+  'projectionMode': 'encoder',
 }
 
 $('#projectionTabs > li > a').click(function() {
@@ -69,9 +78,11 @@ $('#projectionTabs > li > a').click(function() {
   }
 });
 
+$('#projectionGoBack').hide();
+
 
 // Attention View
-$("#attentionViewSelect").change(function(){
+$("#encoderAttentionView").change(function(){
   let value = $(this).find(':checked').val();
   state.attentionView = value;
   if (value === 'importance') {
@@ -284,6 +295,7 @@ $('select').on('change', function(){
 })
 
 
+
 const projectionWidth = 900;
 const projectionHeight = 500;
 const projectionSVG = d3.select("#projectionView")
@@ -291,6 +303,11 @@ const projectionSVG = d3.select("#projectionView")
   .attr("class", "scatterplot")
   .attr("width", projectionWidth)
   .attr("height", projectionHeight);
+
+state.projectionSVG = projectionSVG;
+state.projectionWidth = projectionWidth;
+state.projectionHeight = projectionHeight;
+
 
 const projectionCanvasLeft = d3.select("#projectionView")
   .append('canvas')
@@ -300,12 +317,19 @@ const projectionCanvasRight = d3.select("#projectionView")
   .append('canvas')
     .attr('id', state.canvasID.replace('Left', 'Right'));
 
-const attentionSVG = d3.select("#attentionView")
+const decoderAttentionSVG = d3.select("#decoderAttentionView")
   .append('svg')
     .attr("class", "projection")
-    .attr("id", "attention-svg")
+    .attr("id", "decoder-attention-svg")
     // .attr("width", 700)
-    .attr("height", 500);
+    .attr("height", 630);
+
+const encoderAttentionSVG = d3.select("#encoderAttentionView")
+  .append('svg')
+    .attr("class", "projection")
+    .attr("id", "encoder-attention-svg")
+    // .attr("width", 700)
+    .attr("height", 630);
 
 
 
@@ -344,23 +368,30 @@ const loadData = (state) => {
   })
 
   server_query.then(response => {
-    // let importance = response['head_importance'];
+
+    let encoderImportance = response['encoder_head_importance'];
+    let decoderImportance = response['decoder_head_importance'];
     // let attn_patten = response['aggregate_attn'];
 
+    // console.log(attn_patten);
     // attn_patten.forEach(d => {
-    //   d.attn = JSON.parse(d.attn);
+      // d.attn = JSON.parse(d.attn);
     // })
+    let attn_patten = [];
 
-    // // TODO: Do something to handle the error here
-    // if (response['x'] === undefined || response['y'] === undefined) {
-    //   $('#loader').hide();
-    //   return;
-    // }
+    // TODO: Do something to handle the error here
+    if (response['x'] === undefined || response['y'] === undefined) {
+      $('#loader').hide();
+      return;
+    }
 
-    // state = renderImportance(importance, attn_patten, attentionSVG, 700, 500, state);
+    state = renderImportance(encoderImportance, attn_patten, encoderAttentionSVG, 850, 630, state);
+    state = renderImportance(decoderImportance, attn_patten, decoderAttentionSVG, 850, 630, state);
 
-    // state.aggregate_importance = importance;
-    // state.aggregate_pattern = attn_patten;
+    state.encoder_importance = encoderImportance;
+    state.decoder_importance = decoderImportance;
+    state.aggregate_pattern = attn_patten;
+
 
 
     // TODO: The following code into a function
@@ -404,7 +435,7 @@ const loadData = (state) => {
     }
 
 
-    state = renderProjection(response, projectionSVG, projectionWidth, projectionHeight, state);
+    state = renderProjection(response, projectionSVG, projectionWidth, projectionHeight, 'encoder', state);
     $('#loader').hide();
 
   });

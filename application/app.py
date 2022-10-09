@@ -30,7 +30,6 @@ class T3_Visualization(object):
     def __init__(self, args):
 
         self.args = args
-
         try:
             exec(f"from dataset import {args.dataset}")
         except ImportError:
@@ -117,7 +116,6 @@ class T3_Visualization(object):
 
         # output = self.model.generate(**model_input)
         # output_ids = output['sequences']
-        output_ids = ['test']
 
         # logits = output['logits']
         # input_saliency = compute_input_saliency(self.model, len(example['tokens']), logits)
@@ -131,7 +129,14 @@ class T3_Visualization(object):
         # results['attn_pattern'] = format_attention_image(np.array(results['attn']))
         # results['head_importance'] = normalize(get_taylor_importance(self.model)).tolist()
         results['input_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(example['input_ids'].squeeze(0))
-        results['output_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(output['sequences'].squeeze(0))
+        # results['output_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(output['sequences'].squeeze(0))
+        results['output_tokens'] = ['test']
+        output_projection = {}
+        output_projection['ids'] = np.arange(len(self.decoder_projections[idx])).tolist()
+        output_projection['x'] = self.decoder_projections[idx][:, 0].tolist()
+        output_projection['y'] = self.decoder_projections[idx][:, 1].tolist()
+        output_projection['domain'] = (min(min(output_projection['x']), min(output_projection['y'])), max(max(output_projection['x']), max(output_projection['y'])))
+        results['output_projections'] = output_projection
 
         return results
 
@@ -208,7 +213,7 @@ def get_data():
     }
 
     # projection_data = torch.load(pjoin(checkpoint_dir, 'projection_data.pt'))
-    projection_data = torch.load(pjoin('resources', 'encoder_projection_data.pt'))
+    projection_data = torch.load(pjoin(t3_vis.resource_dir, 'encoder_projection_data.pt'))
 
     results = {}
     results['ids'] = projection_data['idx'].tolist()
@@ -257,16 +262,16 @@ def get_data():
         attr_val['median'] = projection_data[attr_name].median()
         results['continuous'].append(attr_val)
 
-
-    # aggregate_attn = torch.load(pjoin(checkpoint_dir, 'aggregate_attn.pt'))
-
+    # aggregate_encoder_attn = torch.load(pjoin(t3_vis.resource_dir, 'aggregate_encoder_attn_img.pt'))
+    # pdb.set_trace()
     # Do this for now, need to send an image file to be more efficient
-    # for i in range(len(aggregate_attn)):
-    #     aggregate_attn[i]['attn'] = json.dumps(aggregate_attn[i]['attn'])
+    # for i in range(len(aggregate_encoder_attn)):
+    #     aggregate_encoder_attn[i]['attn'] = json.dumps(aggregate_encoder_attn[i]['attn'])
 
     # importance = torch.load(pjoin(checkpoint_dir, 'head_importance.pt'))
-    # results['head_importance'] = importance.tolist()
-    # results['aggregate_attn'] = aggregate_attn
+    results['decoder_head_importance'] = np.random.rand(16, 16).tolist()
+    results['encoder_head_importance'] = np.random.rand(16, 16).tolist()
+    # results['aggregate_attn'] = aggregate_encoder_attn
 
     return flask.jsonify(results)
 
@@ -307,7 +312,7 @@ if __name__ == '__main__':
     parser.add_argument("--n_examples", default=10, type=int, help="The maximum number of data examples to visualize")
 
     parser.add_argument("--filter_paddings", default=True, type=bool, help="Filter padding tokens for visualization")
-    parser.add_argument("--resource_dir", default=pjoin(cwd, 'resources'), \
+    parser.add_argument("--resource_dir", default=pjoin(cwd, 'resources', 'pegasus'), \
                         help="Directory containing the necessary visualization resources for each model checkpoint")
 
 

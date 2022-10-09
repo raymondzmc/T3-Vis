@@ -13,7 +13,7 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
 
   // d3.select('#attentionView').style('position', 'relative');
   // svg.style("position", "absolute")
-  let attn_len = (attn_patten[0].attn.length / 4)**(1/2)
+  // let attn_len = (attn_patten[0].attn.length / 4)**(1/2)
   let marginX = 50;
   let marginY = 20;
   let nLayers = data.length;
@@ -210,52 +210,53 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
     // }, false);
   }
 
-  // let canvas = d3.select('#attentionView').append('canvas')
-  //   .attr("id", "attention-canvas")
-  //   .attr('width', innerWidth)
-  //   .attr('height', innerHeight)
-  //   .style("width", innerWidth + "px")
-  //   .style("height", innerHeight + "px")
-  //   .style('margin-left', marginX + 'px')
-  //   .style('margin-top', marginY + 'px');
+  // // let canvas = d3.select('#attentionView').append('canvas')
+  // //   .attr("id", "attention-canvas")
+  // //   .attr('width', innerWidth)
+  // //   .attr('height', innerHeight)
+  // //   .style("width", innerWidth + "px")
+  // //   .style("height", innerHeight + "px")
+  // //   .style('margin-left', marginX + 'px')
+  // //   .style('margin-top', marginY + 'px');
 
-  attn_patten.forEach((attn, i) => {
-    drawImage(attn);
-  })
+  // attn_patten.forEach((attn, i) => {
+  //   drawImage(attn);
+  // })
 
-  cellsEnter.append('rect')
-    .attr('class', 'border')
-    .attr('height', yScale.bandwidth())
-    .attr('width', xScale.bandwidth())
-    .attr('ry', yScale.bandwidth() * 0.1)
-    .attr('rx', xScale.bandwidth() * 0.1)
-    .raise();
+  // cellsEnter.append('rect')
+  //   .attr('class', 'border')
+  //   .attr('height', yScale.bandwidth())
+  //   .attr('width', xScale.bandwidth())
+  //   .attr('ry', yScale.bandwidth() * 0.1)
+  //   .attr('rx', xScale.bandwidth() * 0.1)
+  //   .raise();
 
-  cellsEnter.append('text')
-    .attr('class', 'fas prune-button')
-    .text('\uf057')
-    .attr('x', (4 / 5) * xScale.bandwidth())
-    .raise()
-    .on('click', function(){
-      let layerIdx = d3.select(this.parentNode.parentNode).attr('class').match(/(\d+)/)[0] - 1;
-      let headIdx = d3.select(this.parentNode).attr('class').match(/(\d+)/)[0] - 1;
-      // state.pruned_heads
+  // cellsEnter.append('text')
+  //   .attr('class', 'fas prune-button')
+  //   .text('\uf057')
+  //   .attr('x', (4 / 5) * xScale.bandwidth())
+  //   .raise()
+  //   .on('click', function(){
+  //     let layerIdx = d3.select(this.parentNode.parentNode).attr('class').match(/(\d+)/)[0] - 1;
+  //     let headIdx = d3.select(this.parentNode).attr('class').match(/(\d+)/)[0] - 1;
+  //     // state.pruned_heads
 
-      d3.select(this.parentNode).remove()
-      if (layerIdx in state.pruned_heads){
-        state.pruned_heads[layerIdx].push(headIdx);
-      } else {
-        state.pruned_heads[layerIdx] = [headIdx];
-      }
-      console.log(state)
-    });
+  //     d3.select(this.parentNode).remove()
+  //     if (layerIdx in state.pruned_heads){
+  //       state.pruned_heads[layerIdx].push(headIdx);
+  //     } else {
+  //       state.pruned_heads[layerIdx] = [headIdx];
+  //     }
+  //     console.log(state)
+  //   });
 
-    // let layerIdx, headIdx;
-    // console.log(parseInt(Object.keys(state.pruned_heads)[0]))
-    Object.keys(state.pruned_heads).forEach(layerIdx => {
-      state.pruned_heads[layerIdx].forEach(headIdx => {
-        d3.select(`.row-${parseInt(layerIdx) + 1} > .col-${parseInt(headIdx) + 1}`).remove()
-      })
-    })
+  //   // let layerIdx, headIdx;
+  //   // console.log(parseInt(Object.keys(state.pruned_heads)[0]))
+  // Object.keys(state.pruned_heads).forEach(layerIdx => {
+  //   state.pruned_heads[layerIdx].forEach(headIdx => {
+  //     d3.select(`.row-${parseInt(layerIdx) + 1} > .col-${parseInt(headIdx) + 1}`).remove()
+  //   })
+  // })
+
   return state;
 }

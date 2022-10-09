@@ -1,65 +1,8 @@
 import { renderInstanceView } from './instance-view.js';
 import { renderImportanceFromState } from './component-view.js';
+// import { renderProjection } from './projection-view.js';
 
-export const selectExample = (id, state) => {
-  $('#loader').show();
-  // let exampleID = (typeof(id) === 'string')? +id.split('-')[1]: id;
-  let exampleID = id;
 
-  // // Unselect all previous selections
-  // d3.selectAll('.example.selected')
-  //   .classed('selected', false)
-  //   .attr('r', 3);
-
-  // // Select current example by ID
-  // d3.select(`.example#example-${exampleID}`)
-  //   .classed('selected', true)
-  //   .attr('r', 10);
-  state.selectedIdx.clear();
-  state.selectedIdx.add(id);
-  // console.log(exampleID)
-  state['example_id'] = exampleID;
-
-  // if (state['checkpoint'] === 0 ){
-  //   $('#loader').hide();
-  //   return
-  // }
-  
-  const server_query = d3.json('../api/eval_one', {
-      method: "POST",
-      body: JSON.stringify(state),
-      headers: {
-          "Content-type": "application/json; charset=UTF-8"
-      }
-  })
-
-  server_query.then(response => {
-      state['attention'] = response['attn'];
-      let importance = response['head_importance'];
-      let attn_patten = response['attn_pattern'];
-
-      state.instance_importance = importance;
-      state.instance_pattern = attn_patten;
-      $("#instanceAttention").prop("disabled", false);
-      state.tokenIdx = null;
-      state = renderInstanceView(
-        response['input_tokens'],
-        response['output_tokens'],
-        response['input_saliency'],
-        // response['label'],
-        // response['loss'],
-        '#input-token-container',
-        '#output-token-container',
-        state,
-      );
-
-      let attentionSVG = d3.select("#attention-svg");
-
-      // state = renderImportanceFromState(attentionSVG, state);
-      $('#loader').hide();
-  });
-  return state;
-}
 
 export const scrollContent = id => {
   // console.log(id, typeof(id));

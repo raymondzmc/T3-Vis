@@ -1,4 +1,6 @@
-import {selectExample, scrollContent, highlightContent, checkArrays} from './utils.js';
+import {scrollContent, highlightContent, checkArrays} from './utils.js';
+import { renderInstanceView } from './instance-view.js';
+import { renderImportanceFromState } from './component-view.js';
 import {legend} from './legend.js';
 
 const hoverExample = id => {
@@ -30,8 +32,113 @@ const renderTable = (filteredIDs) => {
   });
 }
 
+export const selectExample = (id, state) => {
+  $('#loader').show();
+  // let exampleID = (typeof(id) === 'string')? +id.split('-')[1]: id;
+  let exampleID = id;
+  state.selectedIdx.clear();
+  state.selectedIdx.add(id);
+  state['example_id'] = exampleID;
 
-export const renderProjection = (data, svg, width, height, state) => {
+  const server_query = d3.json('../api/eval_one', {
+      method: "POST",
+      body: JSON.stringify(state),
+      headers: {
+          "Content-type": "application/json; charset=UTF-8"
+      }
+  })
+
+  server_query.then(response => {
+      state['attention'] = response['attn'];
+      let importance = response['head_importance'];
+      let attn_patten = response['attn_pattern'];
+
+      state.instance_importance = importance;
+      state.instance_pattern = attn_patten;
+      $("#instanceAttention").prop("disabled", false);
+      state.tokenIdx = null;
+      state = renderInstanceView(
+        response['input_tokens'],
+        response['output_tokens'],
+        response['input_saliency'],
+        // response['label'],
+        // response['loss'],
+        '#input-token-container',
+        '#output-token-container',
+        state,
+      );
+
+      state = renderProjection(response['output_projections'], state.projectionSVG, state.projectionWidth, state.projectionHeight, 'decoder', state);
+
+      // let attentionSVG = d3.select("#attention-svg");
+
+
+      // state = renderImportanceFromState(attentionSVG, state);
+      $('#loader').hide();
+  });
+  return state;
+}
+
+
+
+export const selectToken= (id, state) => {
+  // let exampleID = (typeof(id) === 'string')? +id.split('-')[1]: id;
+  let tokenID = id;
+  // state.selectedIdx.clear();
+  // state.selectedIdx.add(id);
+  // state['example_id'] = exampleID;
+
+  // const server_query = d3.json('../api/eval_one', {
+  //     method: "POST",
+  //     body: JSON.stringify(state),
+  //     headers: {
+  //         "Content-type": "application/json; charset=UTF-8"
+  //     }
+  // })
+
+  // server_query.then(response => {
+  //     state['attention'] = response['attn'];
+  //     let importance = response['head_importance'];
+  //     let attn_patten = response['attn_pattern'];
+
+  //     state.instance_importance = importance;
+  //     state.instance_pattern = attn_patten;
+  //     $("#instanceAttention").prop("disabled", false);
+  //     state.tokenIdx = null;
+  //     state = renderInstanceView(
+  //       response['input_tokens'],
+  //       response['output_tokens'],
+  //       response['input_saliency'],
+  //       // response['label'],
+  //       // response['loss'],
+  //       '#input-token-container',
+  //       '#output-token-container',
+  //       state,
+  //     );
+
+  //     state = renderProjection(response['output_projections'], state.projectionSVG, state.projectionWidth, state.projectionHeight, 'decoder', state);
+
+  //     let attentionSVG = d3.select("#attention-svg");
+
+
+  //     // state = renderImportanceFromState(attentionSVG, state);
+  //     $('#loader').hide();
+  // });
+  return state;
+}
+
+
+
+export const renderProjection = (data, svg, width, height, mode, state) => {
+  state.projectionMode = mode;
+
+  // Use decoder order as the default color encoding
+  if (mode === 'decoder') {
+    state.projectionColor = 'id';
+  } else {
+    state.projectionColor = "None";
+  }
+
   let margin = {top: 10, right: 10, bottom: 50, left: 100};
   let innerWidth = width - margin.left - margin.right;
   let innerHeight = height - margin.top - margin.bottom;
@@ -54,7 +161,6 @@ export const renderProjection = (data, svg, width, height, state) => {
 
   // Remove previous drawn axes
   svg.selectAll(`#axis-g-${loc}`).remove();
-  console.log(data)
   let quadTreeData = data['x'].map((x, i) => [data['ids'][i], x, data['y'][i]])
   // Initialize a quadtree for searching nearby points
   let quadTree = d3.quadtree()
@@ -105,8 +211,10 @@ export const renderProjection = (data, svg, width, height, state) => {
     .call(yAxis);
 
   // TO DO: Change these to be dynamic
-  let xLabel = (state.projectionType == 'hidden') ? 'UMAP Dimension 1' : 'Variability';
-  let yLabel = (state.projectionType == 'hidden') ? 'UMAP Dimension 2' : 'Averge Confidence';
+  let xLabel = `UMAP Dimension 1 (${mode})`
+  let yLabel = `UMAP Dimension 2 (${mode})`
+  // let xLabel = (state.projectionType == 'hidden') ? '' : 'Variability';
+  // let yLabel = (state.projectionType == 'hidden') ? 'UMAP Dimension 2' : 'Averge Confidence';
 
   axisG.append('text')             
     .attr('class', 'axis-label')
@@ -147,9 +255,20 @@ export const renderProjection = (data, svg, width, height, state) => {
       } else {
         state.selectedIdx.add(index);
       }
-      console.log(index);
-      state = selectExample(index, state);
-      scrollContent(index);
+
+      if (mode == 'encoder') {
+        state = selectExample(index, state);
+        $('#projectionGoBack').show();
+        $('#projectionGoBack').on('click', function(event) {
+          renderProjection(data, svg, width, height, mode, state);
+          $('#projectionGoBack').hide();
+        })
+      } else {
+        console.log(`selected decoder token ${index}`)
+      }
+
+
+      // scrollContent(index);
       draw(transform);
     }
 
@@ -188,6 +307,11 @@ export const renderProjection = (data, svg, width, height, state) => {
       colorDomain = [colorAttr.min, colorAttr.max];
     }
 
+    else if (colorAttrName == 'id') {
+      colorAttr = {'values': data['ids']};
+      colorDomain = [0, data['ids'].length - 1];
+    }
+
     context.clearRect(0, 0, innerWidth, innerHeight);
 
     let filteredIDs = [];
@@ -197,7 +321,7 @@ export const renderProjection = (data, svg, width, height, state) => {
       context.strokeStyle = 'white';
       let cx = xRescale(+data['x'][i]);
       let cy = yRescale(+data['y'][i]);
-      let r = 3;
+      let r = (mode == 'encoder')? 3: 6;
 
       let withinFilterRange = true;
       let attributeSelected = true;
@@ -225,7 +349,7 @@ export const renderProjection = (data, svg, width, height, state) => {
 
         // TODO: add color scale for more than two classes
         if (colorAttr !== null) {
-          value = +colorAttr.values[i]
+          value = +colorAttr.values[i];
 
           if (colorDomain !== null) {
             value = (value - colorDomain[0]) / (colorDomain[1] - colorDomain[0]);
@@ -234,7 +358,7 @@ export const renderProjection = (data, svg, width, height, state) => {
           value = 0;
         }
 
-        context.fillStyle = d3.interpolateRdYlBu(1 - value);
+        context.fillStyle = (colorAttrName === 'id')? d3.interpolateReds(value) : d3.interpolateRdYlBu(1 - value); 
         context.beginPath();
         context.arc(cx, cy, r, 0, 2 * Math.PI);
         context.closePath();
@@ -268,11 +392,11 @@ export const renderProjection = (data, svg, width, height, state) => {
 
   // TODO: Remove this
   let selectName;
-  if (state.comparisonMode) {
-    selectName = (state.canvasID.includes('Right'))? '#projectionColorRight':'#projectionColorLeft';
-  } else {
-    selectName = '#projectionColor';
-  }
+  // if (state.comparisonMode) {
+  //   selectName = (state.canvasID.includes('Right'))? '#projectionColorRight':'#projectionColorLeft';
+  // } else {
+  //   selectName = '#projectionColor';
+  // }
 
   // Changing encoded color
   $(`${selectName}`).on('change', function(){
@@ -362,3 +486,4 @@ export const renderProjection = (data, svg, width, height, state) => {
 
   return state;
 }
+
