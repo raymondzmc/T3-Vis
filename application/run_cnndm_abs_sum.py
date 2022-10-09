@@ -26,7 +26,7 @@ def main(args):
     model = PegasusForConditionalGeneration.from_pretrained(model_name).to(device)
     hidden_size = model.model.config.hidden_size
     max_output_len = 512
-    max_input_len = model.model.config.max_position_embeddings
+    max_input_len = model.config.max_position_embeddings
 
 
     if not os.path.isdir(args.output_dir):
@@ -39,8 +39,8 @@ def main(args):
     aggregate_encoder_attn = np.zeros((
         model.config.encoder_layers,
         model.config.encoder_attention_heads,
-        model.config.max_position_embeddings,
-        model.config.max_position_embeddings,
+        max_input_len,
+        max_input_len,
     ), dtype=np.float16)
 
 
@@ -48,7 +48,7 @@ def main(args):
         model.config.decoder_layers,
         model.config.decoder_attention_heads,
         max_output_len,
-        model.config.max_position_embeddings,
+        max_input_len,
     ), dtype=np.float16)
 
     aggregate_decoder_attn = np.zeros((
@@ -57,6 +57,9 @@ def main(args):
         max_output_len,
         max_output_len,
     ), dtype=np.float16)
+
+    input_position_count = torch.zeros(max_input_len, device=device)
+    output_position_count = torch.zeros(max_output_len, device=device)
 
 
     for i, example in enumerate(tqdm(dataset)):
@@ -101,8 +104,15 @@ def main(args):
             aggregate_cross_attn[:, :, :output_len, :input_len] += cross_attention.cpu().numpy()
             for decoder_step, row in enumerate(decoder_attention):
                 aggregate_decoder_attn[:, :, decoder_step, :row.shape[-1]] += row.cpu().numpy()
-            # Attention for each example need to be saved as a separate file (due to limited memory)
-            # You can use .tolist() to convert tensor to a nested list (json serializable)
+            pdb.set_trace()
+
+    max_input_len = len(aggregate_encoder_attn.nonzero(as_tuple=False))
+    max_output_len = len(aggregate_cross_attn.nonzero(as_tuple=False))
+
+    
+
+    aggregate_encoder_attn = aggregate_encoder_attn[:, :, :max_input_len, :max_input_len]
+    attn /= attn_normalize_count.cpu().numpy()[:max_input_len]
     pdb.set_trace()
     #   # # (1 + n_layer) x batch_size x input_len x hidden_dim
     #   encoder_hidden_states = output.encoder_hidden_states[-1][0]
