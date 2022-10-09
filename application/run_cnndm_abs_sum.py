@@ -104,16 +104,20 @@ def main(args):
             aggregate_cross_attn[:, :, :output_len, :input_len] += cross_attention.cpu().numpy()
             for decoder_step, row in enumerate(decoder_attention):
                 aggregate_decoder_attn[:, :, decoder_step, :row.shape[-1]] += row.cpu().numpy()
-            pdb.set_trace()
 
-    max_input_len = len(aggregate_encoder_attn.nonzero(as_tuple=False))
-    max_output_len = len(aggregate_cross_attn.nonzero(as_tuple=False))
+            input_position_count[:input_len] += 1
+            output_position_count[:output_len] += 1
 
+    max_input_len = len(input_position_count.nonzero(as_tuple=False))
+    max_output_len = len(output_position_count.nonzero(as_tuple=False))
+    pdb.set_trace()
+    torch.save(aggregate_encoder_attn, 'aggregate_encoder_attn.pt')
+    torch.save(aggregate_decoder_attn, 'aggregate_decoder_attn.pt')
+    torch.save(aggregate_cross_attn, 'aggregate_cross_attn.pt')
     
 
     aggregate_encoder_attn = aggregate_encoder_attn[:, :, :max_input_len, :max_input_len]
     attn /= attn_normalize_count.cpu().numpy()[:max_input_len]
-    pdb.set_trace()
     #   # # (1 + n_layer) x batch_size x input_len x hidden_dim
     #   encoder_hidden_states = output.encoder_hidden_states[-1][0]
     #   encoder_hiddens.append(encoder_hidden_states.half().cpu())
