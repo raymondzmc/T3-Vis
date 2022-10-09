@@ -12,6 +12,7 @@ from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA, IncrementalPCA
 import numpy as np
 from scipy import linalg as la
+from utils.helpers import format_attention_image
 
 def tensor2list(tensor, decimals=3):
     return torch.round(tensor, decimals=decimals).cpu().tolist()
@@ -109,20 +110,26 @@ def main(args):
             input_position_count[:input_len] += 1
             output_position_count[:output_len] += 1
             cross_attn_position_count[:output_len, :input_len] += 1
-            # cross_attn_position_count += torch.cross_attention[:, :] > 1
 
     max_input_len = len(input_position_count.nonzero(as_tuple=False))
     max_output_len = len(output_position_count.nonzero(as_tuple=False))
-    pdb.set_trace()
-    torch.save(aggregate_encoder_attn, 'aggregate_encoder_attn.pt')
-    torch.save(aggregate_decoder_attn, 'aggregate_decoder_attn.pt')
-    torch.save(aggregate_cross_attn, 'aggregate_cross_attn.pt')
+    
     
 
     aggregate_encoder_attn = aggregate_encoder_attn[:, :, :max_input_len, :max_input_len] / \
                              input_position_count.cpu().numpy()[:max_input_len]
 
-    attn /= attn_normalize_count.cpu().numpy()[:max_input_len]
+    aggregate_decoder_attn = aggregate_decoder_attn[:, :, :max_output_len, :max_output_len] /\
+                             output_position_count.cpu().numpy()[:max_output_len]
+                             
+    cross_attn_position_count[cross_attn_position_count == 0] = 1
+    aggregate_cross_attn = aggregate_cross_attn[:, :, :max_output_len, :max_input_len] /\
+                           cross_attn_position_count.cpu().numpy()[:max_output_len, :max_input_len]
+
+    torch.save(aggregate_encoder_attn, 'aggregate_encoder_attn.pt')
+    torch.save(aggregate_decoder_attn, 'aggregate_decoder_attn.pt')
+    torch.save(aggregate_cross_attn, 'aggregate_cross_attn.pt')
+    pdb.set_trace()
     #   # # (1 + n_layer) x batch_size x input_len x hidden_dim
     #   encoder_hidden_states = output.encoder_hidden_states[-1][0]
     #   encoder_hiddens.append(encoder_hidden_states.half().cpu())
