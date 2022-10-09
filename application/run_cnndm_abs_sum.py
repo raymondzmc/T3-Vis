@@ -60,6 +60,7 @@ def main(args):
 
     input_position_count = torch.zeros(max_input_len, device=device)
     output_position_count = torch.zeros(max_output_len, device=device)
+    cross_attn_position_count = torch.zeros((max_output_len, max_input_len), device=device)
 
 
     for i, example in enumerate(tqdm(dataset)):
@@ -107,6 +108,8 @@ def main(args):
 
             input_position_count[:input_len] += 1
             output_position_count[:output_len] += 1
+            cross_attn_position_count[:output_len, :input_len] += 1
+            # cross_attn_position_count += torch.cross_attention[:, :] > 1
 
     max_input_len = len(input_position_count.nonzero(as_tuple=False))
     max_output_len = len(output_position_count.nonzero(as_tuple=False))
@@ -116,7 +119,9 @@ def main(args):
     torch.save(aggregate_cross_attn, 'aggregate_cross_attn.pt')
     
 
-    aggregate_encoder_attn = aggregate_encoder_attn[:, :, :max_input_len, :max_input_len]
+    aggregate_encoder_attn = aggregate_encoder_attn[:, :, :max_input_len, :max_input_len] / \
+                             input_position_count.cpu().numpy()[:max_input_len]
+
     attn /= attn_normalize_count.cpu().numpy()[:max_input_len]
     #   # # (1 + n_layer) x batch_size x input_len x hidden_dim
     #   encoder_hidden_states = output.encoder_hidden_states[-1][0]
