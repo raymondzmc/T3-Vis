@@ -35,6 +35,11 @@ class T3_Visualization(object):
         except ImportError:
             print(f"\nWarning: Cannot import function \"{args.dataset}\" from directory \"dataset\", please ensure the function is defined in this file!")
 
+        if args.device == None:
+            self.device = 'cuda' if torch.cuda.is_available() and args.device else 'cpu'
+        else:
+            self.device = args.device
+
         self.resource_dir = args.resource_dir
         self.checkpoint_dirs = [subdir for subdir in os.listdir(self.resource_dir) if os.path.isdir(pjoin(self.resource_dir, subdir))]
         self.curr_checkpoint_dir = None
@@ -53,9 +58,11 @@ class T3_Visualization(object):
         self.table_headings = tuple(self.dataset.visualize_columns)
         self.table_content = [{col_name:row[col_name] for col_name in self.table_headings} for i, row in enumerate(self.dataset) if (args.n_examples and i < args.n_examples)]
 
-
         # Temp
         self.decoder_projections = torch.load(pjoin(self.resource_dir, 'decoder_projections.pt'))
+        self.encoder_attentions = None
+        self.decoder_attentions = None
+        self.cross_attentions = None
 
     def init_model(self, model_name):
         try:
@@ -64,6 +71,7 @@ class T3_Visualization(object):
             print(f"\nWarning: Cannot import function \"{args.model}\" from directory \"models\", please ensure the function is defined in this file!")
 
         self.model = eval(f"{model_name}()")
+        self.model.to(self.device)
 
         if self.curr_checkpoint_dir != None:
             self.model.load_state_dict(torch.load(pjoin(curr_checkpoint_dir, 'model.pt')))
@@ -78,7 +86,18 @@ class T3_Visualization(object):
                 self.pruned_heads[layer] = set(heads + pruned_heads)
             self.model.prune_heads(heads_to_prune)
 
-    def evaluate_example(self, idx):
+    def get_attentions(self, attn_type, layer, head):
+        results = {}
+
+        if attn_type == 'encoder':
+            results['encoder_attentions'] = self.encoder_attentions[layer][head]
+        elif attn_type == 'decoder':
+            results['cross_attentions'] = self.cross_attentions[layer][head]
+            results['decoder_attentions'] = [a[layer][head] for a in self.decoder_attentions]
+
+        return results
+
+    def evaluate_example(self, idx, encoder_head=None, decoder_head=None):
         """
         Perform inference on a single data example,
         return output logits, attention scores, saliency maps along with other attributes 
@@ -103,18 +122,18 @@ class T3_Visualization(object):
             input_len = example['attention_mask'].sum().item()
 
             for input_key in self.dataset.input_columns:
-                model_input[input_key] = model_input[input_key][:, :input_len]
+                model_input[input_key] = model_input[input_key][:, :input_len].to(self.device)
 
         model_input['max_length'] = 512
         model_input['return_dict_in_generate'] = True
-        model_input['output_attentions'] = False
+        model_input['output_attentions'] = True
 
         results['decoder_projections'] = {}
         results['decoder_projections']['x'] = self.decoder_projections[idx][:, 0].tolist()
         results['decoder_projections']['y'] = self.decoder_projections[idx][:, 1].tolist()
         # batch['output_hidden_states'] = True
 
-        # output = self.model.generate(**model_input)
+        output = self.model.generate(**model_input)
         # output_ids = output['sequences']
 
         # logits = output['logits']
@@ -128,9 +147,22 @@ class T3_Visualization(object):
         # results['attn'] = format_attention(output['attentions'], self.num_attention_heads, self.pruned_heads)
         # results['attn_pattern'] = format_attention_image(np.array(results['attn']))
         # results['head_importance'] = normalize(get_taylor_importance(self.model)).tolist()
+        self.encoder_attentions = (torch.stack(output['encoder_attentions']).squeeze(1) * 100).byte().cpu().tolist()
+        self.cross_attentions = torch.stack([(torch.stack(a)[:, 0].squeeze(2) * 100).byte().cpu() for a in output['cross_attentions']]).transpose(0, 1).transpose(1, 2).tolist()
+        self.decoder_attentions = [(torch.stack(a)[:, 0].squeeze(2) * 100).byte().cpu().tolist() for a in output['decoder_attentions']]
+
+        if encoder_head:
+            layer, head = int(encoder_head[0]) - 1, int(encoder_head[1]) - 1
+            results['encoder_attentions'] = self.encoder_attentions[layer - 1][head - 1]
+
+        if decoder_head:
+            layer, head = int(decoder_head[0]) - 1, int(decoder_head[1]) - 1
+            results['cross_attentions'] = self.cross_attentions[layer - 1][head - 1]
+            results['decoder_attentions'] = [a[layer - 1][head - 1] for a in self.decoder_attentions]
+
+
         results['input_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(example['input_ids'].squeeze(0))
-        # results['output_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(output['sequences'].squeeze(0))
-        results['output_tokens'] = ['test']
+        results['output_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(output['sequences'].squeeze(0))
         output_projection = {}
         output_projection['ids'] = np.arange(len(self.decoder_projections[idx])).tolist()
         output_projection['x'] = self.decoder_projections[idx][:, 0].tolist()
@@ -281,17 +313,25 @@ def eval_one():
     """
     Evaluate a single example in the back-end, specified by the example_id
     """
-    sample_name = flask.request.json['example_id']
-
-    results = {}
-    results['attn'] = {}
-
+    request = flask.request.json
     # heads_to_prune = {int(k): v for k, v in flask.request.json['pruned_heads'].items()}
-
     # if heads_to_prune != {}: 
     #     t3_vis.prune_heads(heads_to_prune)
+    results = t3_vis.evaluate_example(request['example_id'], request['encoder_head'], request['decoder_head'])
+    return flask.jsonify(results)
 
-    results = t3_vis.evaluate_example(sample_name)
+@app.route('/api/attentions', methods=['POST'])
+def get_attentions():
+    """
+    Evaluate a single example in the back-end, specified by the example_id
+    """
+    request = flask.request.json
+
+    attention_type = request['attention_type']
+    layer = int(request['layer']) - 1
+    head = int(request['head']) - 1
+
+    results = t3_vis.get_attentions(attention_type, layer, head)
     return flask.jsonify(results)
 
 
@@ -310,13 +350,12 @@ if __name__ == '__main__':
 
     # This should be based on the number of examples saved
     parser.add_argument("--n_examples", default=10, type=int, help="The maximum number of data examples to visualize")
+    parser.add_argument("--device", default=None, type=str)
 
     parser.add_argument("--filter_paddings", default=True, type=bool, help="Filter padding tokens for visualization")
     parser.add_argument("--resource_dir", default=pjoin(cwd, 'resources', 'pegasus'), \
                         help="Directory containing the necessary visualization resources for each model checkpoint")
 
-
-    
 
     args = parser.parse_args()
 

@@ -6,7 +6,8 @@ let state = {
   'corpus': 'sst_demo',
   'comparisonMode': false,
   'projectionType': 'hidden',
-  'selectedIdx': new Set(),
+  'selectedExample': null,
+  
     
   'type': 'train',
   'model': 'bert',
@@ -30,12 +31,10 @@ let state = {
 
   // 'checkpointName': $("#checkpointName option:selected").val(),
   'checkpointName': null,
+  // 'inputIdx': null,
+  // 'outputIdx': null,
 
-  'attentionIdx': [null, null],
-  'inputIdx': null,
-  'outputIdx': null,
-  'attention': null,
-
+  // For visualizing attention images
   'encoderAttentionView': $('#encoderAttentionViewSelect').find(':checked').val(),
   'encoderAttentionScale': $('#encoderAttentionScaleSelect').find(':checked').val(),
   'decoderAttentionView': $('#decoderAttentionViewSelect').find(':checked').val(),
@@ -47,7 +46,6 @@ let state = {
   // 'instance_importance': null,
   // 'aggregate_pattern': null,
   // 'instance_pattern': null,
-
   
   'interpMethod': $('#interpretationSelect').find(':checked').val(),
 
@@ -57,6 +55,17 @@ let state = {
 
   // Seq2seq parameters
   'projectionMode': 'encoder',
+  'decoderProjection': null,
+  'responseData': null,
+
+  'encoderHead': null,
+  'decoderHead': null,
+  'encoderAttentions': null,
+  'crossAttentions': null,
+  'decoderAttentions': null,
+
+  'selectedInput': null,
+  'selectedOutput': null,
 }
 
 $('#projectionTabs > li > a').click(function() {
@@ -77,9 +86,6 @@ $('#projectionTabs > li > a').click(function() {
     state = loadData(state);
   }
 });
-
-$('#projectionGoBack').hide();
-
 
 // Attention View
 $("#encoderAttentionView").change(function(){
@@ -319,14 +325,13 @@ const projectionCanvasRight = d3.select("#projectionView")
 
 const decoderAttentionSVG = d3.select("#decoderAttentionView")
   .append('svg')
-    .attr("class", "projection")
+    .attr("value", "decoder")
     .attr("id", "decoder-attention-svg")
-    // .attr("width", 700)
     .attr("height", 630);
 
 const encoderAttentionSVG = d3.select("#encoderAttentionView")
   .append('svg')
-    .attr("class", "projection")
+    .attr("value", "encoder")
     .attr("id", "encoder-attention-svg")
     // .attr("width", 700)
     .attr("height", 630);
@@ -433,8 +438,7 @@ const loadData = (state) => {
     if ($(`${selectName} option[value='${state.projectionColor}']`).length > 0) {
       $(`${selectName}`).val(state.projectionColor);
     }
-
-
+    state.responseData = response;
     state = renderProjection(response, projectionSVG, projectionWidth, projectionHeight, 'encoder', state);
     $('#loader').hide();
 

@@ -1,3 +1,4 @@
+import pdb
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -92,6 +93,9 @@ def format_attention(output_attention, n_heads, pruned_heads):
                 next_head_idx += 1
     return attn_vectors
 
+# def format_attention(attentions):
+#     attentions = (torch.stack(attentions).squeeze(1) * 100).byte().tolist()
+#     pdb.set_trace()
 
 
 

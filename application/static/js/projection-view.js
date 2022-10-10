@@ -1,7 +1,7 @@
-import {scrollContent, highlightContent, checkArrays} from './utils.js';
+import { scrollContent, highlightContent, checkArrays } from './utils.js';
 import { renderInstanceView } from './instance-view.js';
 import { renderImportanceFromState } from './component-view.js';
-import {legend} from './legend.js';
+import { legend } from './legend.js';
 
 const hoverExample = id => {
   d3.select(`.example#${id}`)
@@ -32,31 +32,50 @@ const renderTable = (filteredIDs) => {
   });
 }
 
+
+const toggleModeSelect = () => {
+  let newMode = (d3.select('#projectionMode').attr('value') === 'encoder')? 'decoder' : 'encoder';
+  let newText = (newMode === 'encoder')? '⇒ Decoder Projections' : '⇐ Encoder Projections'; // TODO: Replace with symbol
+  d3.select('#projectionMode')
+    .attr('value', newMode)
+    .text(newText);
+}
+
 export const selectExample = (id, state) => {
   $('#loader').show();
   // let exampleID = (typeof(id) === 'string')? +id.split('-')[1]: id;
   let exampleID = id;
-  state.selectedIdx.clear();
-  state.selectedIdx.add(id);
+  state.selectedExample = id;
   state['example_id'] = exampleID;
 
   const server_query = d3.json('../api/eval_one', {
       method: "POST",
-      body: JSON.stringify(state),
+      body: JSON.stringify({
+        'example_id': exampleID,
+        'encoder_head': state.encoderHead,
+        'decoder_head': state.decoderHead,
+      }),
       headers: {
           "Content-type": "application/json; charset=UTF-8"
       }
   })
 
   server_query.then(response => {
-      state['attention'] = response['attn'];
-      let importance = response['head_importance'];
-      let attn_patten = response['attn_pattern'];
+      // state.encoder_importance = response['attn'];
+      // let importance = response['head_importance'];
+      // let attn_patten = response['attn_pattern'];
 
-      state.instance_importance = importance;
-      state.instance_pattern = attn_patten;
+      // state.instance_importance = importance;
+      // state.instance_pattern = attn_patten;
+
+      state.encoderAttentions = response['encoder_attentions'];
+      state.crossAttentions = response['cross_attentions'];
+      console.log(state);
+
+
       $("#instanceAttention").prop("disabled", false);
-      state.tokenIdx = null;
+      state.selectedInput = null;
+      state.selectedOutput = null;
       state = renderInstanceView(
         response['input_tokens'],
         response['output_tokens'],
@@ -68,6 +87,7 @@ export const selectExample = (id, state) => {
         state,
       );
 
+      state.decoderProjection = response['output_projections'];
       state = renderProjection(response['output_projections'], state.projectionSVG, state.projectionWidth, state.projectionHeight, 'decoder', state);
 
       // let attentionSVG = d3.select("#attention-svg");
@@ -84,6 +104,7 @@ export const selectExample = (id, state) => {
 export const selectToken= (id, state) => {
   // let exampleID = (typeof(id) === 'string')? +id.split('-')[1]: id;
   let tokenID = id;
+  state.selectedOutput = tokenID;
   // state.selectedIdx.clear();
   // state.selectedIdx.add(id);
   // state['example_id'] = exampleID;
@@ -230,6 +251,17 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
     .text(yLabel);
 
 
+  $('#projectionMode').unbind();
+  $('#projectionMode').on('click', function(event) {
+    toggleModeSelect();
+    // console.log(mo)
+    if (mode === 'encoder' && state.decoderProjection !== null) {
+      renderProjection(state.decoderProjection, svg, width, height, 'decoder', state);
+    } else if (mode === 'decoder') {
+      renderProjection(state.responseData, svg, width, height, 'encoder', state);
+    }
+  })
+
   // Handlers for interactions with canvas 
   const minDist = 6;
   canvas.on('click', (event) => {
@@ -250,29 +282,34 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
 
     if (dist <= minDist) {
       let index = closest[0];
-      if (state.selectedIdx.has(index)) {
-        state.selectedIdx.delete(index);
-      } else {
-        state.selectedIdx.add(index);
-      }
 
-      if (mode == 'encoder') {
-        state = selectExample(index, state);
-        $('#projectionGoBack').show();
-        $('#projectionGoBack').on('click', function(event) {
-          renderProjection(data, svg, width, height, mode, state);
-          $('#projectionGoBack').hide();
-        })
-      } else {
+      // Selection in encoder mode
+      if (mode === 'encoder') {
+
+        state.selectedExample = index;
+        state = selectExample(index, state); // This function renders decoder hidden states
+        $('#projectionMode').show();
+        toggleModeSelect();
+      } 
+
+      // Selection in decoder mode
+      else {
+        state.selectedOutput = index;
+
+        // $('#projectionMode').on('click', function(event) {
+        //   renderProjection(data, svg, width, height, mode, state);
+        //   toggleModeSelect();
+        // })
+
         console.log(`selected decoder token ${index}`)
       }
-
 
       // scrollContent(index);
       draw(transform);
     }
 
   });
+
 
   // canvas.call(zoomBehaviour);
   let context = canvas.node().getContext('2d');
@@ -315,7 +352,9 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
     context.clearRect(0, 0, innerWidth, innerHeight);
 
     let filteredIDs = [];
-    // console.log(data[0][4], predictionRange[0]);
+    let selectedPoint = null;
+    let selectedIdx = (mode === 'encoder')? state.selectedExample : state.selectedOutput;
+
     data['ids'].forEach((id, i) => {
       context.strokeWidth = 1;
       context.strokeStyle = 'white';
@@ -341,12 +380,6 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
       if (withinFilterRange && attributeSelected) {
         filteredIDs.push(id);
 
-        if (state.selectedIdx.has(id)) {
-          r = 10;
-          context.strokeWidth = 1;
-          context.strokeStyle = 'black';        
-        }
-
         // TODO: add color scale for more than two classes
         if (colorAttr !== null) {
           value = +colorAttr.values[i];
@@ -358,7 +391,13 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
           value = 0;
         }
 
-        context.fillStyle = (colorAttrName === 'id')? d3.interpolateReds(value) : d3.interpolateRdYlBu(1 - value); 
+        let fillStyle = (colorAttrName === 'id')? d3.interpolateReds(value) : d3.interpolateRdYlBu(1 - value); 
+
+        if (selectedIdx === id) {
+          selectedPoint = [cx, cy, fillStyle];   
+        }
+
+        context.fillStyle = fillStyle
         context.beginPath();
         context.arc(cx, cy, r, 0, 2 * Math.PI);
         context.closePath();
@@ -367,6 +406,19 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
       }
 
     })
+
+    // Draw the selected point at the end
+    if (selectedPoint !== null) {
+      context.fillStyle = selectedPoint[2];
+      context.strokeWidth = 1;
+      context.strokeStyle = 'black';
+      context.beginPath()
+      context.arc(selectedPoint[0], selectedPoint[1], 10, 0, 2 * Math.PI);
+      context.closePath();
+      context.fill();
+      context.stroke();
+    }
+
     return filteredIDs;
   }
 

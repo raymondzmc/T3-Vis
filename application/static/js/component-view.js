@@ -1,3 +1,5 @@
+import { renderColor } from './instance-view.js';
+
 export const renderImportanceFromState = (attentionSVG, state) => {
   let value = state.attentionScale;
   if (value === 'aggregate') {
@@ -9,11 +11,18 @@ export const renderImportanceFromState = (attentionSVG, state) => {
 }
 
 
+export const getAttentionMaps = (attentionType, layer, head, state) => {
+  
+}
+
+
 export const renderImportance = (data, attn_patten, svg, width, height, state) => {
 
   // d3.select('#attentionView').style('position', 'relative');
   // svg.style("position", "absolute")
   // let attn_len = (attn_patten[0].attn.length / 4)**(1/2)
+  let headType = svg.attr("value");
+
   let marginX = 50;
   let marginY = 20;
   let nLayers = data.length;
@@ -59,9 +68,9 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
   // let attn_image = d3.select('#projection_4 > svg').append('svg:image');
 
   // Add classes to ticks
-  d3.selectAll('.x-axis > .tick')
+  svg.selectAll('.x-axis > .tick')
     .attr('class', d => `tick head-${d}`);
-  d3.selectAll('.y-axis > .tick')
+  svg.selectAll('.y-axis > .tick')
     .attr('class', d => `tick layer-${d}`);
 
   let rows = svg
@@ -90,28 +99,68 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
     .on('click', function() {
 
       // Check if the head has been pruned
-      if (d3.select(this.parentNode).size() === 0) {
-        return
-      }
-
+      // if (d3.select(this.parentNode).size() === 0) {
+      //   return
+      // }
       let head = d3.select(this).attr('class').match(/(\d+)/)[0];
       let layer = d3.select(this.parentNode).attr('class').match(/(\d+)/)[0];
-      state.attentionIdx = [layer, head];
+      state[`${headType}Head`] = [layer, head];
 
       // Unselect previous selections 
-      d3.selectAll('.cell > .selected').classed('selected', false);
-      d3.selectAll('.x-axis > .tick.selected').classed('selected', false);
-      d3.selectAll('.y-axis > .tick.selected').classed('selected', false);
+      svg.selectAll('.cell > .selected').classed('selected', false);
+      svg.selectAll('.x-axis > .tick.selected').classed('selected', false);
+      svg.selectAll('.y-axis > .tick.selected').classed('selected', false);
 
       // Select heatmap cell and tick on axis
       d3.select(this).classed('selected', true);
       d3.select(this).select('.border').classed('selected', true);
       d3.select(this).select('.prune-button').classed('selected', true);
-      d3.select(`.x-axis > .tick.head-${head}`).classed('selected', true);
-      d3.select(`.y-axis > .tick.layer-${layer}`).classed('selected', true);
-      if (state.tokenIdx != null) {
-        renderColor(state.attention[layer - 1][head - 1][state.tokenIdx]);
-      }
+      svg.select(`.x-axis > .tick.head-${head}`).classed('selected', true);
+      svg.select(`.y-axis > .tick.layer-${layer}`).classed('selected', true);
+
+      $('#loader').show();
+      const server_query = d3.json('../api/attentions', {
+        method: "POST",
+        body: JSON.stringify({
+          'attention_type': headType,
+          'layer': layer,
+          'head': head,
+        }),
+        headers: {
+          "Content-type": "application/json; charset=UTF-8"
+        }
+      })
+
+      server_query.then(response => {
+
+        // Update state with attention maps
+        if (headType === 'encoder'){
+          state.encoderAttentions = response['encoder_attentions'];
+          if (state.selectedInput != null){
+            renderColor(state.encoderAttentions[state.selectedInput], [], 'input', state);
+          }
+        } 
+
+        else {
+          state.crossAttentions = response['cross_attentions'];
+          state.decoderAttentions = response['decoder_attentions'];
+
+          if (state.selectedOutput != null){
+            renderColor(
+              state.crossAttentions[state.selectedOutput],
+              state.decoderAttentions[state.selectedOutput],
+              'output',
+              state
+            );
+          }
+
+        }
+
+        $('#loader').hide();
+      });
+
+
+
     }).on('mouseover', function() {
       d3.select(this).select('.prune-button').classed('hovered', true);
       d3.select(this).select('.border').classed('hovered', true);
@@ -153,7 +202,7 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
   const drawImage = async (attn) => {
     let layer = attn.layer + 1;
     let head = attn.head + 1;
-    let cell = d3.select(`.row.row-${layer}`).select(`.cell.col-${head}`);
+    let cell = svg.select(`.row.row-${layer}`).select(`.cell.col-${head}`);
 
     let canvas;
     let width = xScale.bandwidth();
