@@ -212,7 +212,7 @@ if __name__ == '__main__':
     parser.add_argument('-dataset', type=str, default='xsum', choices=['cnndm', 'xsum'])
     parser.add_argument('-model_name', type=str, default='google/pegasus-xsum')
     parser.add_argument('-hidden_aggregate_method', type=str, default='mean')
-    parser.add_argument('-output_dir', type=str, default='../resources/pegasus_xsum')
+    parser.add_argument('-output_dir', type=str, default='resources/pegasus_xsum')
     args = parser.parse_args()
     # args.device = "cuda" if torch.cuda.is_available() else "cpu"
     args.device = torch.device('cuda:0')
