@@ -10,7 +10,7 @@ import numpy as np
 from os.path import join as pjoin
 
 from utils.input_saliency import register_hooks, compute_input_saliency
-from utils.head_importance import get_taylor_importance
+from utils.head_importance import get_taylor_importance_pegasus
 from utils.helpers import normalize, format_attention, format_attention_image
 
 import pdb
@@ -71,6 +71,7 @@ class T3_Visualization(object):
             print(f"\nWarning: Cannot import function \"{args.model}\" from directory \"models\", please ensure the function is defined in this file!")
 
         self.model = eval(f"{model_name}()")
+        self.model.requires_grad_(True)
         self.model.to(self.device)
 
         if self.curr_checkpoint_dir != None:
@@ -161,6 +162,11 @@ class T3_Visualization(object):
             results['decoder_attentions'] = [a[layer - 1][head - 1] for a in self.decoder_attentions]
 
 
+        head_importance = get_taylor_importance_pegasus(self.model)
+        # print(self.model)
+        results['encoder_head_importance'] = normalize(head_importance['encoder']).tolist()
+        results['decoder_head_importance'] = normalize(head_importance['decoder']).tolist()
+        results['cross_attn_head_importance'] = normalize(head_importance['cross']).tolist()
         results['input_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(example['input_ids'].squeeze(0))
         results['output_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(output['sequences'].squeeze(0))
         output_projection = {}
