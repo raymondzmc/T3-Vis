@@ -10,7 +10,7 @@ import numpy as np
 from os.path import join as pjoin
 
 from utils.input_saliency import register_hooks, compute_input_saliency
-from utils.head_importance import get_taylor_importance
+from utils.head_importance import get_taylor_importance_pegasus
 from utils.helpers import normalize, format_attention, format_attention_image
 
 import pdb
@@ -64,6 +64,7 @@ class T3_Visualization(object):
             print(f"\nWarning: Cannot import function \"{args.model}\" from directory \"models\", please ensure the function is defined in this file!")
 
         self.model = eval(f"{model_name}()")
+        self.model.requires_grad_(True)
 
         if self.curr_checkpoint_dir != None:
             self.model.load_state_dict(torch.load(pjoin(curr_checkpoint_dir, 'model.pt')))
@@ -114,7 +115,9 @@ class T3_Visualization(object):
         results['decoder_projections']['y'] = self.decoder_projections[idx][:, 1].tolist()
         # batch['output_hidden_states'] = True
 
-        # output = self.model.generate(**model_input)
+        output = self.model.generate(**model_input)
+        print(type(output))
+        # print(output.keys())
         # output_ids = output['sequences']
 
         # logits = output['logits']
@@ -128,6 +131,11 @@ class T3_Visualization(object):
         # results['attn'] = format_attention(output['attentions'], self.num_attention_heads, self.pruned_heads)
         # results['attn_pattern'] = format_attention_image(np.array(results['attn']))
         # results['head_importance'] = normalize(get_taylor_importance(self.model)).tolist()
+        head_importance = get_taylor_importance_pegasus(self.model)
+        # print(self.model)
+        results['encoder_head_importance'] = normalize(head_importance['encoder']).tolist()
+        results['decoder_head_importance'] = normalize(head_importance['decoder']).tolist()
+        results['cross_attn_head_importance'] = normalize(head_importance['cross']).tolist()
         results['input_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(example['input_ids'].squeeze(0))
         # results['output_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(output['sequences'].squeeze(0))
         results['output_tokens'] = ['test']
