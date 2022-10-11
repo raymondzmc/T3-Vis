@@ -76,7 +76,7 @@ def main(args):
     num_steps = 0
 
     for i, example in enumerate(tqdm(dataset)):
-        if i > 1000:
+        if i > 100:
             break
         article = example['document']
         highlights = example['summary']
@@ -240,6 +240,7 @@ if __name__ == '__main__':
     parser.add_argument('-model_name', type=str, default='google/pegasus-xsum')
     parser.add_argument('-hidden_aggregate_method', type=str, default='mean')
     parser.add_argument('-output_dir', type=str, default='resources/pegasus_xsum')
+
     args = parser.parse_args()
     # args.device = "cuda" if torch.cuda.is_available() else "cpu"
     args.device = torch.device('cuda:0')
