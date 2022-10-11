@@ -67,8 +67,8 @@ def main(args):
     output_position_count = torch.zeros(max_output_len, device=device)
     cross_attn_position_count = torch.zeros((max_output_len, max_input_len), device=device)
 
-    encoder_head_importance = np.zeros((16, 16))
-    decoder_head_importance = np.zeros((16, 16, 2))
+    # encoder_head_importance = np.zeros((16, 16))
+    # decoder_head_importance = np.zeros((16, 16, 2))
 
     # Neede for importance
     model.train()
@@ -76,8 +76,6 @@ def main(args):
     num_steps = 0
 
     for i, example in enumerate(tqdm(dataset)):
-        if i > 50:
-            break
         article = example['document']
         highlights = example['summary']
         _id = example['id']
@@ -88,7 +86,8 @@ def main(args):
         batch['output_hidden_states'] = True
         batch['output_scores'] = True
 
-        output = model.generate(**batch)
+        with torch.no_grad():
+            output = model.generate(**batch)
 
 
         beam_indices = output['beam_indices'][0, :-1]
@@ -112,10 +111,11 @@ def main(args):
             beam_search_hidden_states.append(hidden[beam_idx])
 
         decoder_hiddens.append(torch.stack(beam_search_hidden_states).half().cpu().numpy())
-        head_importance = get_head_importance_pegasus(model)
-        encoder_head_importance += head_importance['encoder']
-        decoder_head_importance[:, :, 0] += head_importance['decoder']
-        decoder_head_importance[:, :, 1] += head_importance['cross']
+
+        # head_importance = get_head_importance_pegasus(model)
+        # encoder_head_importance += head_importance['encoder']
+        # decoder_head_importance[:, :, 0] += head_importance['decoder']
+        # decoder_head_importance[:, :, 1] += head_importance['cross']
 
         if batch['output_attentions']:
             output_len += 1
@@ -144,11 +144,10 @@ def main(args):
         num_steps += 1
 
 
-    encoder_head_importance /= num_steps
-    decoder_head_importance /= num_steps
-    torch.save(encoder_head_importance, pjoin(args.output_dir, 'encoder_head_importance.pt'))
-    torch.save(decoder_head_importance, pjoin(args.output_dir, 'decoder_head_importance.pt'))
-    exit()
+    # encoder_head_importance /= num_steps
+    # decoder_head_importance /= num_steps
+    # torch.save(encoder_head_importance, pjoin(args.output_dir, 'encoder_head_importance.pt'))
+    # torch.save(decoder_head_importance, pjoin(args.output_dir, 'decoder_head_importance.pt'))
 
     torch.save(encoder_hiddens, pjoin(args.output_dir, 'encoder_hidden_states.pt'))
     torch.save(decoder_hiddens, pjoin(args.output_dir, 'decoder_hidden_states.pt'))
