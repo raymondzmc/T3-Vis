@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import pdb
+from captum.attr import IntegratedGradients, LayerIntegratedGradients
 
 
 def find_pruneable_heads_and_indices(heads, n_heads, head_size, already_pruned_heads):
@@ -21,7 +22,8 @@ def find_pruneable_heads_and_indices(heads, n_heads, head_size, already_pruned_h
     return heads, index
 
 
-def compute_attn_importance_score(model, attn, layer_index, n_heads, head_size, importance_scores):
+def compute_taylor_importance_score(model, attn, layer_index, n_heads, head_size, importance_scores,
+                                    input_embeddings=None):
     # pruned_heads = attn.pruned_heads
     pruned_heads = set()
     leftover_heads = set(list(range(n_heads))) - pruned_heads
@@ -37,8 +39,8 @@ def compute_attn_importance_score(model, attn, layer_index, n_heads, head_size, 
         attn.q_proj.weight.sum().backward()
         attn.k_proj.weight.sum().backward()
         attn.v_proj.weight.sum().backward()
-
         attn.out_proj.weight.sum().backward()
+
         query_b_grad = (attn.q_proj.bias.grad[index] * attn.q_proj.bias[index]) ** 2
         query_W_grad = (attn.q_proj.weight.grad.index_select(0, index) *
                         attn.q_proj.weight.index_select(0, index)) ** 2
@@ -55,21 +57,47 @@ def compute_attn_importance_score(model, attn, layer_index, n_heads, head_size, 
 
         output_W_grad = (attn.out_proj.weight.grad.index_select(1, index) *
                          attn.out_proj.weight.index_select(1, index)) ** 2
-        abs_grad_magnitude = query_b_grad.sum() + query_W_grad.sum() + key_b_grad.sum() + \
-                             key_W_grad.sum() + value_b_grad.sum() + value_W_grad.sum() + output_W_grad.sum()
+        abs_grad_magnitude = query_b_grad.sum() + query_W_grad.sum() + key_b_grad.sum() + key_W_grad.sum() + \
+                             value_b_grad.sum() + value_W_grad.sum() + output_W_grad.sum()
 
         importance_scores[layer_index, head_idx] += abs_grad_magnitude
 
     return importance_scores
 
 
-def get_taylor_importance_pegasus(model):
+def compute_ig_importance_score(model, attn, layer_index, n_heads, head_size, importance_scores, input_embeddings):
+    ig = IntegratedGradients(model)
+    # print("input_embeddings shape", input_embeddings.shape)
+    for head_idx in set(list(range(n_heads))):
+        heads, index = find_pruneable_heads_and_indices([head_idx], n_heads, head_size, set())
+        # print("heads, index", heads, index)
+        Wh_Q = attn.q_proj.weight.index_select(0, index)  # W_h^Q  d * d_q
+        Wh_K = attn.k_proj.weight.index_select(0, index)  # W_h^K  d * d_k
+        # print(Wh_Q.shape, Wh_K.shape)
+        Q = torch.matmul(input_embeddings, Wh_Q.T)  # N * d_q
+        K = torch.matmul(input_embeddings, Wh_K.T)  # N * d_k
+        # print(Q.shape, K.shape)
+        A_h = torch.nn.functional.softmax(torch.matmul(Q, K.T) / K.shape[1], dim=0)
+        A_baseline = torch.zeros_like(A_h)
+        # print(A_h)
+        importance_scores[layer_index, head_idx] += ig.attribute(inputs=A_h, baselines=A_baseline,
+                                                                 # target=
+                                                                 )
+
+    return importance_scores
+
+
+def get_head_importance_pegasus(model, method='taylor', input_ids=None):
+    methods = ['taylor', 'ig']
+    if method not in methods:
+        raise NotImplementedError(f"Attribution method '{method}' for attention is not yet supported")
+
     configuration = model.config
     n_layers_encoder = configuration.encoder_layers
     n_heads_encoder = configuration.encoder_attention_heads
     n_layers_decoder = configuration.decoder_layers
     n_heads_decoder = configuration.decoder_attention_heads
-    # print(configuration)
+    # print("vocab", configuration.vocab_size)
     head_size_encoder = int(configuration.d_model / n_heads_encoder)
     head_size_decoder = int(configuration.d_model / n_heads_decoder)
 
@@ -77,18 +105,29 @@ def get_taylor_importance_pegasus(model):
     importance_scores_decoder = np.zeros((n_layers_decoder, n_heads_decoder))  # M * M
     importance_scores_cross = np.zeros((n_layers_decoder, n_heads_encoder))  # M * N
 
-    for i in range(n_layers_encoder):
-        self_attention_encoder = model.model.encoder.layers[i].self_attn
-        # num_attention_heads_encoder = self_attention_encoder.num_heads
-        importance_scores_encoder = compute_attn_importance_score(model, self_attention_encoder, i, n_heads_encoder,
-                                                                  head_size_encoder, importance_scores_encoder)
+    attribution_functions = [compute_taylor_importance_score, compute_ig_importance_score]
+    attribution_fn = attribution_functions[0] if method == 'taylor' else attribution_functions[1]
+
+    input_embeddings = []
+    if method == 'ig':
+        embeddings = model.model.decoder.embed_tokens.weight.data  # vocab_size * emb_dim
+        input_embeddings = torch.index_select(embeddings, 0, input_ids)  # X = input_len * emb
+
+    if method == 'taylor':
+        for i in range(n_layers_encoder):
+            self_attention_encoder = model.model.encoder.layers[i].self_attn
+            # num_attention_heads_encoder = self_attention_encoder.num_heads
+            importance_scores_encoder = attribution_fn(model, self_attention_encoder, i,
+                                                       n_heads_encoder, head_size_encoder,
+                                                       importance_scores_encoder)
     for i in range(n_layers_decoder):
         self_attention_decoder = model.model.decoder.layers[i].self_attn
         cross_attention = model.model.decoder.layers[i].encoder_attn
-        importance_scores_decoder = compute_attn_importance_score(model, self_attention_decoder, i, n_heads_decoder,
-                                                                  head_size_decoder, importance_scores_decoder)
-        importance_scores_cross = compute_attn_importance_score(model, cross_attention, i, n_heads_encoder,
-                                                                head_size_encoder, importance_scores_cross)
+        importance_scores_decoder = attribution_fn(model, self_attention_decoder, i,
+                                                   n_heads_decoder, head_size_decoder,
+                                                   importance_scores_decoder, input_embeddings)
+        importance_scores_cross = attribution_fn(model, cross_attention, i, n_heads_encoder,
+                                                 head_size_encoder, importance_scores_cross, input_embeddings)
 
     return {"encoder": importance_scores_encoder,
             "decoder": importance_scores_decoder,

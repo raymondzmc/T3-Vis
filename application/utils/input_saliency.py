@@ -2,8 +2,9 @@ import math
 import torch
 import torch.nn as nn
 import numpy as np
-from transformers import BertTokenizer, BertForSequenceClassification
-from transformers.models.bert.modeling_bert import BertEmbeddings, BertLayer, BertSelfAttention
+from transformers import PegasusTokenizer, PegasusForConditionalGeneration
+from transformers.models.pegasus.modeling_pegasus import PegasusSinusoidalPositionalEmbedding, \
+    PegasusEncoderLayer, PegasusDecoderLayer, PegasusAttention
 from captum.attr import IntegratedGradients, LayerIntegratedGradients
 
 import pdb
@@ -57,7 +58,7 @@ def register_hooks(model):
         torch.nn.Dropout,
         torch.nn.Softmax,
         torch.nn.Tanh,
-        BertEmbeddings,
+        PegasusSinusoidalPositionalEmbedding,
     )
 
     def forward_hook(module, input, output):
@@ -72,7 +73,7 @@ def register_hooks(model):
         setattr(module, 'activation', [x for x in output])
 
     for name, module in model.named_children():
-        if isinstance(module, BertSelfAttention):
+        if isinstance(module, PegasusAttention):
             module.register_forward_hook(forward_hook_attn)
         elif not isinstance(module, allowed_pass_layers):
             module.register_forward_hook(forward_hook)
@@ -80,7 +81,7 @@ def register_hooks(model):
         register_hooks(module)
 
 
-def bert_layer_lrp(layer, relevance):
+def pegasus_layer_lrp(layer, relevance):
     if relevance.shape != layer.output.activation.shape:
         relevance_holder = torch.zeros(layer.output.activation.shape)
         relevance_holder[:,
@@ -135,7 +136,7 @@ def bert_layer_lrp(layer, relevance):
     return relevance
 
 
-def bert_lrp(model, out_relevance, grad=None):
+def pegasus_lrp(model, out_relevance, grad=None):
     """
     Recursively computes the LRP score given the model and prediction
 
@@ -146,7 +147,7 @@ def bert_lrp(model, out_relevance, grad=None):
         torch.nn.Dropout,
         torch.nn.Softmax,
         torch.nn.Tanh,
-        BertEmbeddings,
+        PegasusSinusoidalPositionalEmbedding,
     )
 
     module_list = []
@@ -162,18 +163,18 @@ def bert_lrp(model, out_relevance, grad=None):
             relevance = lrp_linear(module.dense.weight, module.dense.bias, module.dense.input[0], relevance)
             # relevance_all = torch.zeros_like(module.input[0])
             # relevance_all[:, 0] = relevance
-        elif isinstance(module, BertLayer):
-            relevance = bert_layer_lrp(module, relevance)
+        elif isinstance(module, PegasusEncoderLayer):
+            relevance = pegasus_layer_lrp(module, relevance)
         elif isinstance(module, allowed_pass_layers):
             continue
         else:
-            relevance = bert_lrp(module, relevance, grad)
+            relevance = pegasus_lrp(module, relevance, grad)
 
     return relevance
 
 
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
+tokenizer = PegasusTokenizer.from_pretrained('google/pegasus-cnn_dailymail')
+model = PegasusForConditionalGeneration.from_pretrained('google/pegasus-cnn_dailymail')
 # global var for target class # todo: find a workaround
 target = 0
 
@@ -233,12 +234,12 @@ def bert_ig(input_tokens):
     return attributions_sum
 
 
-def compute_input_saliency(model, input_len, input_tokens, logits):
+def compute_input_saliency(model, input_len, input_tokens, output):
     model.zero_grad()
 
     dim = 1  # Dimension for data
     global target
-    output_len = logits.size(dim)
+    output_len = output.size(dim)
 
     saliency = {
         'lrp': [],
@@ -250,11 +251,11 @@ def compute_input_saliency(model, input_len, input_tokens, logits):
 
     for i in range(output_len):
         model.zero_grad()
-        prediction_mask = torch.zeros_like(logits)
+        prediction_mask = torch.zeros_like(output)
         prediction_mask[:, i] = 1
-        out_relevance = logits * prediction_mask
+        out_relevance = torch.matmul(output.T, prediction_mask)
 
-        relevance = bert_lrp(model, out_relevance).sum(-1).squeeze(0).detach().abs()
+        relevance = pegasus_lrp(model, out_relevance).sum(-1).squeeze(0).detach().abs()
         saliency['lrp'].append(normalize_tensor(relevance).tolist())
 
         embedding_output = model.bert.embeddings.word_embeddings.activation
@@ -282,8 +283,8 @@ def compute_input_saliency(model, input_len, input_tokens, logits):
 
 if __name__ == "__main__":
     # Example code
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
+    tokenizer = PegasusTokenizer.from_pretrained('bert-base-uncased')
+    model = PegasusForConditionalGeneration.from_pretrained('bert-base-uncased')
     model.train()
 
     # Input x Gradients
@@ -300,5 +301,5 @@ if __name__ == "__main__":
     prediction_mask = torch.zeros(logits.size())
     prediction_mask[0, 0] = 1  # Pretend this is the prediction
     out_relevance = logits * prediction_mask
-    relevance = bert_lrp(model, out_relevance)  # Relevance across all dimensions of the embeddings
+    relevance = pegasus_lrp(model, out_relevance)  # Relevance across all dimensions of the embeddings
     pdb.set_trace()
