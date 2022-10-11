@@ -73,8 +73,11 @@ def main(args):
     # Neede for importance
     model.train()
 
+    num_steps = 0
 
     for i, example in enumerate(tqdm(dataset)):
+        if i > 1000:
+            break
         article = example['document']
         highlights = example['summary']
         _id = example['id']
@@ -138,12 +141,13 @@ def main(args):
         
             output_position_count[:output_len] += 1
             cross_attn_position_count[:output_len, :input_len] += 1
+        num_steps += 1
 
     torch.save(encoder_hiddens, pjoin(args.output_dir, 'encoder_hidden_states.pt'))
     torch.save(decoder_hiddens, pjoin(args.output_dir, 'decoder_hidden_states.pt'))
 
-    encoder_head_importance /= len(dataset)
-    decoder_head_importance /= len(dataset)
+    encoder_head_importance /= num_steps
+    decoder_head_importance /= num_steps
     torch.save(encoder_head_importance, pjoin(args.output_dir, 'encoder_head_importance.pt'))
     torch.save(decoder_head_importance, pjoin(args.output_dir, 'decoder_head_importance.pt'))
 
