@@ -71,7 +71,7 @@ def main(args):
     # decoder_head_importance = np.zeros((16, 16, 2))
 
     # Neede for importance
-    model.train()
+    model.eval()
 
     num_steps = 0
 
