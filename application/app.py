@@ -167,6 +167,8 @@ class T3_Visualization(object):
         results['encoder_head_importance'] = normalize(head_importance['encoder']).tolist()
         results['decoder_head_importance'] = normalize(head_importance['decoder']).tolist()
         results['cross_attn_head_importance'] = normalize(head_importance['cross']).tolist()
+
+        
         results['input_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(example['input_ids'].squeeze(0))
         results['output_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(output['sequences'].squeeze(0))
         output_projection = {}

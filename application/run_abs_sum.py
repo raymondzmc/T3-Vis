@@ -13,6 +13,7 @@ from sklearn.decomposition import PCA, IncrementalPCA
 import numpy as np
 from scipy import linalg as la
 from utils.helpers import format_attention_image
+from os.path import join as pjoin
 
 def tensor2list(tensor, decimals=3):
     return torch.round(tensor, decimals=decimals).cpu().tolist()
@@ -168,8 +169,22 @@ def main(args):
     torch.save(encoder_mean_projections, pjoin(args.output_dir, 'encoder_mean_projections.pt'))
 
     decoder_all_hiddens = torch.cat(decoder_hiddens, 0)
-    encoder_all_projections = fit.fit_transform(decoder_all_hiddens)
-    torch.save(decoder_all_projections, pjoin(args.output_dir, 'decoder_all_projections.pt'))
+    decoder_all_projections = fit.fit_transform(decoder_all_hiddens)
+    _decoder_all_projections = []
+    start = 0
+    for output_len in decoder_len:
+        _decoder_all_projections.append(decoder_all_projections[start: start + output_len])
+        start = start + output_len
+    torch.save(_decoder_all_projections, pjoin(args.output_dir, 'decoder_all_projections.pt'))
+
+    with open(os.path.join(args.output_dir, 'projections.json'), 'w+') as fp:
+        projection_data = {
+            'encoder': encoder_projections.tolist(),
+            'decoder': _decoder_all_projections.tolist(),
+            'ids': id_list,
+        }
+        json.dump(projection_data, fp)
+
     pdb.set_trace()
 
     # encoder_mean_projections = fit.fit_transform(torch.stack([h.mean(dim=0) for h in encoder_hiddens]))
@@ -181,30 +196,20 @@ def main(args):
     # torch.save(encoder_all_projections, 'encoder_all_projections.pt')
     # del encoder_hiddens, encoder_all_projections
 
-    decoder_hiddens = torch.load('decoder_hidden_states.pt')
-    decoder_hiddens_30D = pca.fit(decoder_hiddens)
+    # decoder_hiddens = torch.load('decoder_hidden_states.pt')
+    # decoder_hiddens_30D = pca.fit(decoder_hiddens)
     # decoder_all_projections = fit.fit_transform(decoder_all_hiddens)
-    torch.save(decoder_hiddens_30D, 'decoder_hidden_states_30D.pt')
+    # torch.save(decoder_hiddens_30D, 'decoder_hidden_states_30D.pt')
 
 
-    encoder_projections = TSNE(n_components=2, learning_rate='auto', init='random', perplexity=3).fit_transform(encoder_hiddens.numpy())
-    decoder_projections = TSNE(n_components=2, learning_rate='auto', init='random', perplexity=3).fit_transform(torch.cat(decoder_hiddens).numpy())
+    # encoder_projections = TSNE(n_components=2, learning_rate='auto', init='random', perplexity=3).fit_transform(encoder_hiddens.numpy())
+    # decoder_projections = TSNE(n_components=2, learning_rate='auto', init='random', perplexity=3).fit_transform(torch.cat(decoder_hiddens).numpy())
     
     # Decoder hidden states grouped by examples
-    _decoder_projections = []
-    start = 0
-    for output_len in decoder_len:
-        _decoder_projections.append(decoder_projections[start: start + output_len])
-        start = start + output_len
+    
 
     # Save projection data
-    with open(os.path.join(args.output_dir, 'projections.json'), 'w+') as fp:
-        projection_data = {
-            'encoder': encoder_projections.tolist(),
-            'decoder': _decoder_projections.tolist(),
-            'ids': id_list,
-        }
-        json.dump(projection_data, fp)
+    
 
 
 if __name__ == '__main__':
