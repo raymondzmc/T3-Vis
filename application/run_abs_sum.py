@@ -160,7 +160,7 @@ def main(args):
 
     # encoder_mean_projections = fit.fit_transform(encoder_hiddens)
     # torch.save(encoder_mean_projections, pjoin(args.output_dir, 'encoder_mean_projections.pt'))
-
+    encoder_projections = torch.load(pjoin(args.output_dir, 'encoder_hidden_states.pt'))
     decoder_hiddens = torch.load(pjoin(args.output_dir, 'decoder_hidden_states.pt'))
     decoder_len = [len(h) for h in decoder_hiddens]
 
