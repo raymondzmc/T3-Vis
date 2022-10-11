@@ -112,7 +112,7 @@ def main(args):
             beam_search_hidden_states.append(hidden[beam_idx])
 
         decoder_hiddens.append(torch.stack(beam_search_hidden_states).half().cpu().numpy())
-        head_importance = get_taylor_importance_pegasus(model)
+        head_importance = get_head_importance_pegasus(model)
         encoder_head_importance += head_importance['encoder']
         decoder_head_importance[:, :, 0] += head_importance['decoder']
         decoder_head_importance[:, :, 1] += head_importance['cross']
