@@ -76,7 +76,7 @@ def main(args):
     num_steps = 0
 
     for i, example in enumerate(tqdm(dataset)):
-        if i > 100:
+        if i > 50:
             break
         article = example['document']
         highlights = example['summary']
