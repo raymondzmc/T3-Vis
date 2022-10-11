@@ -148,15 +148,15 @@ def main(args):
     # torch.save(decoder_attn_img, pjoin(args.output_dir, 'aggregate_decoder_attn_img.pt'))
     # torch.save(cross_attn_img, pjoin(args.output_dir, 'aggregate_cross_attn_img.pt'))
 
-    # fit = umap.UMAP(
-    #     n_neighbors=5,
-    #     min_dist=0.1,
-    #     n_components=2,
-    #     metric='cosine',
-    #     verbose=True,
-    #     low_memory=True,
-    #     init='random',
-    # )
+    fit = umap.UMAP(
+        n_neighbors=5,
+        min_dist=0.1,
+        n_components=2,
+        metric='cosine',
+        verbose=True,
+        low_memory=True,
+        init='random',
+    )
 
     # encoder_mean_projections = fit.fit_transform(encoder_hiddens)
     # torch.save(encoder_mean_projections, pjoin(args.output_dir, 'encoder_mean_projections.pt'))
