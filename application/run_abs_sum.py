@@ -143,14 +143,15 @@ def main(args):
             cross_attn_position_count[:output_len, :input_len] += 1
         num_steps += 1
 
-    torch.save(encoder_hiddens, pjoin(args.output_dir, 'encoder_hidden_states.pt'))
-    torch.save(decoder_hiddens, pjoin(args.output_dir, 'decoder_hidden_states.pt'))
 
     encoder_head_importance /= num_steps
     decoder_head_importance /= num_steps
     torch.save(encoder_head_importance, pjoin(args.output_dir, 'encoder_head_importance.pt'))
     torch.save(decoder_head_importance, pjoin(args.output_dir, 'decoder_head_importance.pt'))
+    exit()
 
+    torch.save(encoder_hiddens, pjoin(args.output_dir, 'encoder_hidden_states.pt'))
+    torch.save(decoder_hiddens, pjoin(args.output_dir, 'decoder_hidden_states.pt'))
     # max_input_len = len(input_position_count.nonzero(as_tuple=False))
     # max_output_len = len(output_position_count.nonzero(as_tuple=False))
     # aggregate_encoder_attn = aggregate_encoder_attn[:, :, :max_input_len, :max_input_len] / \
