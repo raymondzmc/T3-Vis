@@ -12,7 +12,7 @@ from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA, IncrementalPCA
 import numpy as np
 from scipy import linalg as la
-from utils.head_importance import get_taylor_importance_pegasus
+from utils.head_importance import get_head_importance_pegasus
 from utils.helpers import normalize, format_attention, format_attention_image
 from os.path import join as pjoin
 
