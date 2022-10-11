@@ -10,13 +10,10 @@ import numpy as np
 from os.path import join as pjoin
 
 from utils.input_saliency import register_hooks, compute_input_saliency
-from utils.head_importance import get_taylor_importance_pegasus
+from utils.head_importance import get_head_importance_pegasus
 from utils.helpers import normalize, format_attention, format_attention_image
 
 import pdb
-
-
-
 
 ################### Global Objects ###################
 app = flask.Flask(__name__, template_folder='templates')
@@ -33,7 +30,8 @@ class T3_Visualization(object):
         try:
             exec(f"from dataset import {args.dataset}")
         except ImportError:
-            print(f"\nWarning: Cannot import function \"{args.dataset}\" from directory \"dataset\", please ensure the function is defined in this file!")
+            print(
+                f"\nWarning: Cannot import function \"{args.dataset}\" from directory \"dataset\", please ensure the function is defined in this file!")
 
         if args.device == None:
             self.device = 'cuda' if torch.cuda.is_available() and args.device else 'cpu'
@@ -41,7 +39,8 @@ class T3_Visualization(object):
             self.device = args.device
 
         self.resource_dir = args.resource_dir
-        self.checkpoint_dirs = [subdir for subdir in os.listdir(self.resource_dir) if os.path.isdir(pjoin(self.resource_dir, subdir))]
+        self.checkpoint_dirs = [subdir for subdir in os.listdir(self.resource_dir) if
+                                os.path.isdir(pjoin(self.resource_dir, subdir))]
         self.curr_checkpoint_dir = None
 
         self.filter_paddings = args.filter_paddings
@@ -54,9 +53,9 @@ class T3_Visualization(object):
         self.num_attention_heads = self.model.num_attention_heads
         self.pruned_heads = collections.defaultdict(list)
 
-
         self.table_headings = tuple(self.dataset.visualize_columns)
-        self.table_content = [{col_name:row[col_name] for col_name in self.table_headings} for i, row in enumerate(self.dataset) if (args.n_examples and i < args.n_examples)]
+        self.table_content = [{col_name: row[col_name] for col_name in self.table_headings} for i, row in
+                              enumerate(self.dataset) if (args.n_examples and i < args.n_examples)]
 
         # Temp
         self.decoder_projections = torch.load(pjoin(self.resource_dir, 'decoder_projections.pt'))
@@ -68,7 +67,8 @@ class T3_Visualization(object):
         try:
             exec(f"from models import {args.model}")
         except ImportError:
-            print(f"\nWarning: Cannot import function \"{args.model}\" from directory \"models\", please ensure the function is defined in this file!")
+            print(
+                f"\nWarning: Cannot import function \"{args.model}\" from directory \"models\", please ensure the function is defined in this file!")
 
         self.model = eval(f"{model_name}()")
         self.model.requires_grad_(True)
@@ -113,7 +113,6 @@ class T3_Visualization(object):
         for col in self.dataset.input_columns:
             example[col] = torch.tensor(example[col])
 
-
         # for col in self.dataset.target_columns:
         #     example[col] = torch.tensor(example[col])
 
@@ -128,7 +127,7 @@ class T3_Visualization(object):
         model_input['max_length'] = 512
         model_input['return_dict_in_generate'] = True
         model_input['output_attentions'] = True
-
+        # print(model_input['input_ids'].shape)
         results['decoder_projections'] = {}
         results['decoder_projections']['x'] = self.decoder_projections[idx][:, 0].tolist()
         results['decoder_projections']['y'] = self.decoder_projections[idx][:, 1].tolist()
@@ -136,21 +135,24 @@ class T3_Visualization(object):
 
         output = self.model.generate(**model_input)
         # output_ids = output['sequences']
-
         # logits = output['logits']
-        # input_saliency = compute_input_saliency(self.model, len(example['tokens']), logits)
+
         # output['loss'].backward(retain_graph=True)
         # results['loss'] = output['loss'].item()
         results['loss'] = 0
         # results['input_saliency'] = input_saliency
-        results['input_saliency'] = []
+        # results['input_saliency'] = []
         # results['output'] = output['sequences'].squeeze(0).tolist()
         # results['attn'] = format_attention(output['attentions'], self.num_attention_heads, self.pruned_heads)
         # results['attn_pattern'] = format_attention_image(np.array(results['attn']))
         # results['head_importance'] = normalize(get_taylor_importance(self.model)).tolist()
         self.encoder_attentions = (torch.stack(output['encoder_attentions']).squeeze(1) * 100).byte().cpu().tolist()
-        self.cross_attentions = torch.stack([(torch.stack(a)[:, 0].squeeze(2) * 100).byte().cpu() for a in output['cross_attentions']]).transpose(0, 1).transpose(1, 2).tolist()
-        self.decoder_attentions = [(torch.stack(a)[:, 0].squeeze(2) * 100).byte().cpu().tolist() for a in output['decoder_attentions']]
+        self.cross_attentions = torch.stack(
+            [(torch.stack(a)[:, 0].squeeze(2) * 100).byte().cpu() for a in output['cross_attentions']]).transpose(0,
+                                                                                                                  1).transpose(
+            1, 2).tolist()
+        self.decoder_attentions = [(torch.stack(a)[:, 0].squeeze(2) * 100).byte().cpu().tolist() for a in
+                                   output['decoder_attentions']]
 
         if encoder_head:
             layer, head = int(encoder_head[0]) - 1, int(encoder_head[1]) - 1
@@ -161,22 +163,36 @@ class T3_Visualization(object):
             results['cross_attentions'] = self.cross_attentions[layer - 1][head - 1]
             results['decoder_attentions'] = [a[layer - 1][head - 1] for a in self.decoder_attentions]
 
-
-        head_importance = get_taylor_importance_pegasus(self.model)
+        head_importance = get_head_importance_pegasus(self.model)
+        # Note: Still work to do in compute_ig_importance_score()
+        # head_importance_ig = get_head_importance_pegasus(self.model, 'ig', model_input['input_ids'].squeeze(0))
         # print(self.model)
         results['encoder_head_importance'] = normalize(head_importance['encoder']).tolist()
-        results['decoder_head_importance'] = normalize(head_importance['decoder']).tolist()
-        results['cross_attn_head_importance'] = normalize(head_importance['cross']).tolist()
+        results['decoder_head_importance'] = [normalize(head_importance['decoder']).tolist(),
+                                              normalize(head_importance['cross']).tolist()]
+        # results['cross_attn_head_importance'] = normalize(head_importance['cross']).tolist()
+        # results['decoder_head_ig'] = head_importance_ig['decoder']
+
+        # Note: Still work to do in compute_input_saliency()
+        # input_saliency = compute_input_saliency(self.model, len(example['input_ids']), example['input_ids'],
+        #                                         output['sequences'])
+        # results['attributions'] = [{
+        #     'input': input_saliency['integratedGrad'] if step > 0 else [],
+        #     'output': np.random.rand(step).tolist()
+        # } for step in range(len(results['output_tokens']))]
+
         results['input_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(example['input_ids'].squeeze(0))
         results['output_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(output['sequences'].squeeze(0))
         output_projection = {}
         output_projection['ids'] = np.arange(len(self.decoder_projections[idx])).tolist()
         output_projection['x'] = self.decoder_projections[idx][:, 0].tolist()
         output_projection['y'] = self.decoder_projections[idx][:, 1].tolist()
-        output_projection['domain'] = (min(min(output_projection['x']), min(output_projection['y'])), max(max(output_projection['x']), max(output_projection['y'])))
+        output_projection['domain'] = (min(min(output_projection['x']), min(output_projection['y'])),
+                                       max(max(output_projection['x']), max(output_projection['y'])))
         results['output_projections'] = output_projection
 
         return results
+
 
 # redirect requests from root to index.html
 @app.route('/')
@@ -191,7 +207,6 @@ def index():
 
 
 def check_resource_dir(resource_dir):
-    
     # Check all subdirectories in the "resource_dir" for data files needed for visualization
     sub_dirs = os.listdir(resource_dir)
 
@@ -199,10 +214,9 @@ def check_resource_dir(resource_dir):
         # (File Name, File Information, Required)
         ('aggregate_attn.pt', 'Aggregated Attention Matrices', True),
         ('head_importance.pt', 'Head Importance Scores', True),
-        ('projection_data.pt', 'Dataset Projection Data', True), 
-        ('model.pt', 'Model Parameters', False)] # By default use the randomly initialized model parameters
+        ('projection_data.pt', 'Dataset Projection Data', True),
+        ('model.pt', 'Model Parameters', False)]  # By default use the randomly initialized model parameters
 
- 
     for subdir in sub_dirs:
         subdir_path = pjoin(resource_dir, subdir)
         if os.path.isdir(subdir_path):
@@ -215,8 +229,6 @@ def check_resource_dir(resource_dir):
                         return False
 
     return True
-
-
 
 
 @app.route('/api/data', methods=['POST'])
@@ -281,7 +293,7 @@ def get_data():
 
         if projection_data[attr_name].dtype in non_discrete_types:
             projection_data[attr_name] = projection_data[attr_name].astype(int)
-        
+
         attr_val['values'] = projection_data[attr_name].tolist()
         attr_val['domain'] = projection_data[attr_name].astype(str).unique().tolist()
         results['discrete'].append(attr_val)
@@ -326,6 +338,7 @@ def eval_one():
     results = t3_vis.evaluate_example(request['example_id'], request['encoder_head'], request['decoder_head'])
     return flask.jsonify(results)
 
+
 @app.route('/api/attentions', methods=['POST'])
 def get_attentions():
     """
@@ -361,7 +374,6 @@ if __name__ == '__main__':
     parser.add_argument("--filter_paddings", default=True, type=bool, help="Filter padding tokens for visualization")
     parser.add_argument("--resource_dir", default=pjoin(cwd, 'resources', 'pegasus'), \
                         help="Directory containing the necessary visualization resources for each model checkpoint")
-
 
     args = parser.parse_args()
 
