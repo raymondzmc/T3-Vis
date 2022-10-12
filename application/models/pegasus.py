@@ -2,7 +2,8 @@ from transformers import PegasusForConditionalGeneration, PegasusTokenizer
 
 
 def pegasus():
-    model = PegasusForConditionalGeneration.from_pretrained('google/pegasus-cnn_dailymail')
+    # model = PegasusForConditionalGeneration.from_pretrained('google/pegasus-cnn_dailymail')
+    model = PegasusForConditionalGeneration.from_pretrained('google/pegasus-xsum')
 
     # Hard-code for now
     setattr(model, 'num_hidden_layers', 12)
