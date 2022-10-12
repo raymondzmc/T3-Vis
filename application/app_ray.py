@@ -128,9 +128,9 @@ class T3_Visualization(object):
         model_input['return_dict_in_generate'] = True
         model_input['output_attentions'] = True
         # print(model_input['input_ids'].shape)
-        # results['decoder_projections'] = {}
-        # results['decoder_projections']['x'] = np.array(self.decoder_projections[idx])[:, 0].tolist()
-        # results['decoder_projections']['y'] = np.array(self.decoder_projections[idx])[:, 1].tolist()
+        results['decoder_projections'] = {}
+        results['decoder_projections']['x'] = self.decoder_projections[idx][:, 0].tolist()
+        results['decoder_projections']['y'] = self.decoder_projections[idx][:, 1].tolist()
         # batch['output_hidden_states'] = True
 
         output = self.model.generate(**model_input)
@@ -141,18 +141,15 @@ class T3_Visualization(object):
         # results['loss'] = output['loss'].item()
         results['loss'] = 0
         # results['input_saliency'] = input_saliency
+        # results['input_saliency'] = []
         # results['output'] = output['sequences'].squeeze(0).tolist()
         # results['attn'] = format_attention(output['attentions'], self.num_attention_heads, self.pruned_heads)
         # results['attn_pattern'] = format_attention_image(np.array(results['attn']))
         # results['head_importance'] = normalize(get_taylor_importance(self.model)).tolist()
-
         self.encoder_attentions = (torch.stack(output['encoder_attentions']).squeeze(1) * 100).byte().cpu().tolist()
-        self.cross_attentions = torch.stack(
-            [(torch.stack(a)[:, 0].squeeze(2) * 100).byte().cpu() for a in output['cross_attentions']]
-        ).transpose(0,1).transpose(1, 2).tolist()
+        self.cross_attentions = torch.stack([(torch.stack(a)[:, 0].squeeze(2) * 100).byte().cpu() for a in output['cross_attentions']]).transpose(0,1).transpose(1, 2).tolist()
         self.decoder_attentions = [(torch.stack(a)[:, 0].squeeze(2) * 100).byte().cpu().tolist() for a in
                                    output['decoder_attentions']]
-
 
         if encoder_head:
             layer, head = int(encoder_head[0]) - 1, int(encoder_head[1]) - 1
@@ -163,42 +160,34 @@ class T3_Visualization(object):
             results['cross_attentions'] = self.cross_attentions[layer - 1][head - 1]
             results['decoder_attentions'] = [a[layer - 1][head - 1] for a in self.decoder_attentions]
 
-        # head_importance = get_head_importance_pegasus(self.model)
+        head_importance = get_head_importance_pegasus(self.model)
         # Note: Still work to do in compute_ig_importance_score()
         # head_importance_ig = get_head_importance_pegasus(self.model, 'ig', model_input['input_ids'].squeeze(0))
-
-        results['input_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(example['input_ids'].squeeze(0))
-        results['output_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(output['sequences'].squeeze(0))
-        output_len = len(results['output_tokens']) - 1
-
-        output_projection = {}
-        output_projection['ids'] = np.arange(len(self.decoder_projections[idx])).tolist()[:output_len]
-        output_projection['x'] = np.array(self.decoder_projections[idx])[:, 0].tolist()[:output_len]
-        output_projection['y'] = np.array(self.decoder_projections[idx])[:, 1].tolist()[:output_len]
-        output_projection['domain'] = (min(min(output_projection['x']), min(output_projection['y'])), max(max(output_projection['x']), max(output_projection['y'])))
-        output_projection['continuous'] = [{
-            'name': 'ids',
-            'values': np.arange(len(self.decoder_projections[idx])).tolist()[:output_len],
-            'max': output_len - 1,
-            'min': 0,
-        }]
-        output_projection['discrete'] = []
-        results['output_projections'] = output_projection
-        # Head Importance and attribution
-        # results['encoder_head_importance'] = normalize(head_importance['encoder']).tolist()
-        # results['decoder_head_importance'] = [normalize(head_importance['decoder']).tolist(),
-        #                                       normalize(head_importance['cross']).tolist()]
+        # print(self.model)
+        results['encoder_head_importance'] = normalize(head_importance['encoder']).tolist()
+        results['decoder_head_importance'] = [normalize(head_importance['decoder']).tolist(),
+                                              normalize(head_importance['cross']).tolist()]
+        # results['cross_attn_head_importance'] = normalize(head_importance['cross']).tolist()
+        # results['decoder_head_ig'] = head_importance_ig['decoder']
 
         # Note: Still work to do in compute_input_saliency()
         # input_saliency = compute_input_saliency(self.model, len(example['input_ids']), example['input_ids'],
         #                                         output['sequences'])
+        # results['attributions'] = [{
+        #     'input': input_saliency['integratedGrad'] if step > 0 else [],
+        #     'output': np.random.rand(step).tolist()
+        # } for step in range(len(results['output_tokens']))]
 
-        # Dummy values for attribution
-        results['attributions'] = [{
-            'input': np.random.rand(len(results['input_tokens'])).tolist() if step > 0 else [],
-            'output': np.random.rand(step).tolist(),
-        } for step in range(len(results['output_tokens']))]
-        
+        results['input_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(example['input_ids'].squeeze(0))
+        results['output_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(output['sequences'].squeeze(0))
+        output_projection = {}
+        output_projection['ids'] = np.arange(len(self.decoder_projections[idx])).tolist()
+        output_projection['x'] = self.decoder_projections[idx][:, 0].tolist()
+        output_projection['y'] = self.decoder_projections[idx][:, 1].tolist()
+        output_projection['domain'] = (min(min(output_projection['x']), min(output_projection['y'])),
+                                       max(max(output_projection['x']), max(output_projection['y'])))
+        results['output_projections'] = output_projection
+
         return results
 
 
@@ -246,78 +235,79 @@ def get_data():
 
     TODO: Move this function into a method for "T3-Vis"
     """
-    # projection_type = flask.request.json['projectionType']
+    projection_type = flask.request.json['projectionType']
     # pdb.set_trace()
-    # if projection_type == 'cartography' and flask.request.json['checkpointName'] in ['pretrained', 'epoch_1']:
-        # flask.request.json['checkpointName'] = 'epoch_2'
+    if projection_type == 'cartography' and flask.request.json['checkpointName'] in ['pretrained', 'epoch_1']:
+        flask.request.json['checkpointName'] = 'epoch_2'
 
-    # t3_vis.curr_checkpoint_dir = flask.request.json['checkpointName']
+    t3_vis.curr_checkpoint_dir = flask.request.json['checkpointName']
 
-    # if t3_vis.curr_checkpoint_dir != None:
-    #     checkpoint_dir = pjoin(t3_vis.resource_dir, t3_vis.curr_checkpoint_dir)
-    #     model_weights_file = pjoin(checkpoint_dir, 'model.pt')
-    #     if os.path.exists(model_weights_file):
-    #         t3_vis.model.load_state_dict(torch.load(model_weights_file))
+    if t3_vis.curr_checkpoint_dir != None:
+        checkpoint_dir = pjoin(t3_vis.resource_dir, t3_vis.curr_checkpoint_dir)
+        model_weights_file = pjoin(checkpoint_dir, 'model.pt')
+        if os.path.exists(model_weights_file):
+            t3_vis.model.load_state_dict(torch.load(model_weights_file))
 
-    # layer = int(flask.request.json['hiddenLayer'])
+    layer = int(flask.request.json['hiddenLayer'])
 
     # TODO: This should be formatted by the user during preprocessing
-    # projection_keys = {
-    #     # 'hidden': (f'projection_{layer}_0', f'projection_{layer}_1'),
-    #     # 'hidden': (f'projection_{layer}_1', f'projection_{layer}_2'),
-    #     # 'cartography': ('avg_variability', 'avg_confidence'),
-    #     'discrete': ['labels', 'predictions'],
-    #     'continuous': ['gt_confidence', 'loss'],
-    # }
+    projection_keys = {
+        'hidden': (f'projection_{layer}_0', f'projection_{layer}_1'),
+        # 'hidden': (f'projection_{layer}_1', f'projection_{layer}_2'),
+        'cartography': ('avg_variability', 'avg_confidence'),
+        'discrete': ['labels', 'predictions'],
+        'continuous': ['gt_confidence', 'loss'],
+    }
 
     # projection_data = torch.load(pjoin(checkpoint_dir, 'projection_data.pt'))
-    projection_path = pjoin(t3_vis.resource_dir, 'encoder_projection_data.pt')
-    projection_data = torch.load(projection_path)
-
-    # input_len = np.array([len(x['input_ids'][0]) for x in t3_vis.dataset]).astype(int)
-    # projection_data['continuous'] = {'input_len': input_len}
+    projection_data = torch.load(pjoin(t3_vis.resource_dir, 'encoder_projection_data.pt'))
 
     results = {}
-    results['ids'] = projection_data['ids'].tolist()
+    results['ids'] = projection_data['idx'].tolist()
 
+    x_name = projection_keys[projection_type][0]
+    y_name = projection_keys[projection_type][1]
 
-    if ('x' in projection_data.keys() and 'y' in projection_data.keys()):
-        results['x'] = list(projection_data['x'])
-        results['y'] = list(projection_data['y'])
+    if (x_name in projection_data.keys() and y_name in projection_data.keys()):
+        results['x'] = list(projection_data[x_name])
+        results['y'] = list(projection_data[y_name])
+
         # Avoid scaling t-SNE embeddings
         # TODO: need another option to determine when or when not to scale
         results['domain'] = (min(min(results['x']), min(results['y'])), max(max(results['x']), max(results['y'])))
-    else:
-        assert Error(f"Missing \"x\" and \"y\" keys in \"{projection_path}\"")
 
     results['discrete'] = []
     results['continuous'] = []
 
     # Process discrete data attributes
     non_discrete_types = [np.float32, np.float64, np.float16, np.double]
-    if 'discrete' in projection_data.keys():
-        for attr_name in projection_data['discrete'].keys():
-            attr_val = {}
-            attr_val['name'] = attr_name
+    for attr_name in projection_keys['discrete']:
+        if attr_name not in projection_data.keys():
+            continue
 
-            if projection_data[attr_name].dtype in non_discrete_types:
-                projection_data[attr_name] = projection_data['discrete'][attr_name].astype(int)
+        attr_val = {}
+        attr_val['name'] = attr_name
 
-            attr_val['values'] = projection_data['discrete'][attr_name].tolist()
-            attr_val['domain'] = projection_data['discrete'][attr_name].astype(str).unique().tolist()
-            results['discrete'].append(attr_val)
+        if projection_data[attr_name].dtype in non_discrete_types:
+            projection_data[attr_name] = projection_data[attr_name].astype(int)
+
+        attr_val['values'] = projection_data[attr_name].tolist()
+        attr_val['domain'] = projection_data[attr_name].astype(str).unique().tolist()
+        results['discrete'].append(attr_val)
 
     # Process continuous data attributes
-    if 'continuous' in projection_data.keys():
-        for attr_name in projection_data['continuous'].keys():
-            attr_val = {}
-            attr_val['name'] = attr_name
-            attr_val['values'] = projection_data['continuous'][attr_name].tolist()
-            attr_val['max'] = int(projection_data['continuous'][attr_name].max())
-            attr_val['min'] = int(projection_data['continuous'][attr_name].min())
-            attr_val['mean'] = int(projection_data['continuous'][attr_name].mean())
-            attr_val['median'] = int(np.median(projection_data['continuous'][attr_name]))
-            results['continuous'].append(attr_val)
+    for attr_name in projection_keys['continuous']:
+        if attr_name not in projection_data.keys():
+            continue
+
+        attr_val = {}
+        attr_val['name'] = attr_name
+        attr_val['values'] = projection_data[attr_name].tolist()
+        attr_val['max'] = projection_data[attr_name].max()
+        attr_val['min'] = projection_data[attr_name].min()
+        attr_val['mean'] = projection_data[attr_name].mean()
+        attr_val['median'] = projection_data[attr_name].median()
+        results['continuous'].append(attr_val)
 
     # aggregate_encoder_attn = torch.load(pjoin(t3_vis.resource_dir, 'aggregate_encoder_attn_img.pt'))
     # pdb.set_trace()
@@ -326,14 +316,8 @@ def get_data():
     #     aggregate_encoder_attn[i]['attn'] = json.dumps(aggregate_encoder_attn[i]['attn'])
 
     # importance = torch.load(pjoin(checkpoint_dir, 'head_importance.pt'))
-
-    # results['decoder_head_importance'] = np.random.rand(16, 16, 2).tolist()
-    # results['encoder_head_importance'] = np.random.rand(16, 16).tolist() # Deco
-    decoder_head_importance = torch.load(pjoin(t3_vis.resource_dir, 'decoder_head_importance.pt'))
-    decoder_head_importance[:, :, 0] = normalize(decoder_head_importance[:, :, 0])
-    decoder_head_importance[:, :, 1] = normalize(decoder_head_importance[:, :, 1])
-    results['decoder_head_importance'] = normalize(decoder_head_importance).tolist()
-    results['encoder_head_importance'] = normalize(torch.load(pjoin(t3_vis.resource_dir, 'encoder_head_importance.pt'))).tolist()
+    results['decoder_head_importance'] = np.random.rand(16, 16).tolist()
+    results['encoder_head_importance'] = np.random.rand(16, 16).tolist()
     # results['aggregate_attn'] = aggregate_encoder_attn
 
     return flask.jsonify(results)
@@ -363,12 +347,7 @@ def get_attentions():
     layer = int(request['layer']) - 1
     head = int(request['head']) - 1
 
-    if (attention_type == 'encoder' and t3_vis.encoder_attentions != None) or \
-       (attention_type == 'decoder' and t3_vis.decoder_attentions != None):
-        results = t3_vis.get_attentions(attention_type, layer, head)
-    else:
-        results = {}
-
+    results = t3_vis.get_attentions(attention_type, layer, head)
     return flask.jsonify(results)
 
 
@@ -390,7 +369,7 @@ if __name__ == '__main__':
     parser.add_argument("--device", default=None, type=str)
 
     parser.add_argument("--filter_paddings", default=True, type=bool, help="Filter padding tokens for visualization")
-    parser.add_argument("--resource_dir", default=pjoin(cwd, 'resources', 'pegasus_xsum'), \
+    parser.add_argument("--resource_dir", default=pjoin(cwd, 'resources', 'pegasus_cnndm'), \
                         help="Directory containing the necessary visualization resources for each model checkpoint")
 
     args = parser.parse_args()

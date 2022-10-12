@@ -1,6 +1,6 @@
 import { renderProjection, selectExample} from './projection-view.js';
 import { renderImportanceFromState, renderImportance } from './component-view.js'
-// import { selectExample } from './utils.js'
+import { renderColor, clearColor} from './instance-view.js'
 
 let state = {
   'corpus': 'sst_demo',
@@ -19,9 +19,9 @@ let state = {
   'discreteFilters': {},
   'continuousFilters': {},
   
-  'projectionColor': $("#projectionColor option:selected").val(),
-  'canvasID': 'canvasLeft',
-  'filtersID': 'filters-left',
+  'projectionColor': $("#color-select option:selected").val(),
+  'canvasID': 'canvas',
+  'filtersID': 'filter',
   // 'predictionRange': [99999, -99999],
   // 'lossRange': [99999, -99999],
   // 'classFilter': {
@@ -42,12 +42,13 @@ let state = {
 
   'decoder_importance': null,
   'encoder_importance': null,
+  'attributions': null,
 
   // 'instance_importance': null,
   // 'aggregate_pattern': null,
   // 'instance_pattern': null,
   
-  'interpMethod': $('#interpretationSelect').find(':checked').val(),
+  'interpretation': $('#interpretation-select').find(':checked').val(),
 
   'pruned_heads': {},
 
@@ -180,125 +181,30 @@ $('#compute-instance').on('click', function(event) {
 
 
 // Instance Investigation View
-$("#interpretationSelect").change(function(){
+$("#interpretation-select").change(function(){
   let value = $(this).find(':checked').val();
-  state.interpMethod = value;
+  state.interpretation = value;
+
+  // TODO: Redundant with function in selectToken() in "component-view.js"
+  if (value === 'attention') {
+    if (state.selectedOutput !== null && state.decoderAttentions !== null) {
+      renderColor(state.crossAttentions[state.selectedOutput], state.decoderAttentions[state.selectedOutput], 'output', state);
+    } else {
+      clearColor();
+    }
+  } else if (value === 'attribution') {
+    state.selectedInput = null;
+    if (state.selectedOutput !== null && state.attributions !== null) {
+      renderColor(state.attributions[state.selectedOutput]['input'], state.attributions[state.selectedOutput]['output'], 'output', state);
+    } else {
+      clearColor();
+    }
+  }
 });
 
 
 // Projection View
-$('select').on('change', function(){
-  let selectedField = $(this).attr('id');
-  let selectedValue = $(this).find(":selected").val();
-  let selectedClassList = $(this).attr('class').split(' ');
 
-  // For projection filter selections
-  if (selectedClassList.includes('filter-select')){
-    let isComparison = selectedField.includes('right');
-    let loc = (isComparison)? 'right' : 'left';
-    let attribute;
-
-    // For categorical attributes
-    if (state.discrete.find(attr => attr.name === selectedValue) !== undefined){
-      attribute = (isComparison)?
-        state.comparisonState.discrete.find(attr => attr.name === selectedValue) :
-        state.discrete.find(attr => attr.name === selectedValue);
-
-
-      $(`#categorical-select-${loc} option`).remove().end();
-
-      // Create option for all values in the domain
-      attribute.domain.forEach(val => {
-        $(`#categorical-select-${loc}`).append(new Option(val, val, attribute.selected.includes(val)));
-      })
-      state.discreteSelect = new vanillaSelectBox(`#categorical-select-${loc}`, {
-        'disableSelectAll': true,
-      });
-
-      // Hide slider and show dropdown
-      $(`#range-slider-${loc}`).hide();
-      $(`#range-value-${loc}`).hide();
-      // $(`#categorical-select-${loc}`).show();
-      $(`#btn-group-categorical-select-${loc}`).show();
-
-    } 
-
-    // For continuous attributes
-    else {
-      attribute = (isComparison)?
-        state.comparisonState.continuous.find(attr => attr.name === selectedValue) :
-        state.continuous.find(attr => attr.name === selectedValue);
-
-      // Update slider with current selected range
-      $(`#range-value-${loc}`).html(`${attribute.filterRange[0].toFixed(3)}-${attribute.filterRange[1].toFixed(3)}`)
-      $(`#range-slider-${loc}`).slider('option', {
-        min: attribute.min,
-        max: attribute.max,
-        step: (attribute.max - attribute.min) / 100,
-        values: attribute.filterRange,
-      });
-
-      // Hide dropdown and show slider
-      // $(`#categorical-select-${loc}`).hide();
-      $(`#btn-group-categorical-select-${loc}`).hide();
-      $(`#range-slider-${loc}`).show();
-      $(`#range-value-${loc}`).show();
-
-    }
-
-  }
-
-  // For categorical value selections
-  else if (selectedClassList.includes('categorical-select')){
-    
-    // This is handled in the projection view to avoid rendering entire projection
-
-  } 
-
-  // For other selections
-  else {
-
-
-    // if (state.type !== 'train') {
-    //   $('#cartographyTab').addClass('disabled');
-    // } else {
-    //   $('#cartographyTab').removeClass('disabled');
-    // }
-
-    // TODO: Probably not the best way to do this right now, change this to be more robust
-    if (state.comparisonMode) {
-
-
-      if (selectedField.includes('Left')){
-        selectedField = selectedField.replace('Left', '');
-        state[selectedField] = selectedValue;
-        state = loadData(state);
-      } else if (selectedField.includes('Right')) {
-        selectedField = selectedField.replace('Right', '');
-        state.comparisonState[selectedField] = selectedValue;
-        state.comparisonState = loadData(state.comparisonState);
-      } else {
-        state[selectedField] = selectedValue;
-      }
-
-
-
-    } else {
-      state[selectedField] = selectedValue;
-
-      if (selectedField === 'hiddenLayer' || selectedField === 'checkpointName') {
-        state = loadData(state);
-      }
-
-    }
-  }
-  // if (state.projectionType === 'hidden') {
-  //   d3.select('#projectionView').style('height', '360%');
-  // } else {
-  //   d3.select('#projectionView').style('height', '600%');
-  // }
-
-})
 
 
 
@@ -315,13 +221,13 @@ state.projectionWidth = projectionWidth;
 state.projectionHeight = projectionHeight;
 
 
-const projectionCanvasLeft = d3.select("#projectionView")
+const projectionCanvas = d3.select("#projectionView")
   .append('canvas')
     .attr('id', state.canvasID);
 
-const projectionCanvasRight = d3.select("#projectionView")
-  .append('canvas')
-    .attr('id', state.canvasID.replace('Left', 'Right'));
+// const projectionCanvasRight = d3.select("#projectionView")
+//   .append('canvas')
+//     .attr('id', state.canvasID.replace('Left', 'Right'));
 
 const decoderAttentionSVG = d3.select("#decoderAttentionView")
   .append('svg')
@@ -345,19 +251,6 @@ const encoderAttentionSVG = d3.select("#encoderAttentionView")
   // .attr("width", 1200)
   // .attr("height", 500);
 
-const resetFilters = (state) => {
-  state.discrete = [];
-  state.continuous = [];
-
-  let loc = state.filtersID.split('-').slice(-1)[0];
-
-  // Hide dropdown and slider
-  $(`#btn-group-categorical-select-${loc}`).hide();
-  $(`#range-slider-${loc}`).hide();
-  $(`#range-value-${loc}`).hide();
-
-  return state;
-}
 
 
 const loadData = (state) => {
@@ -399,45 +292,7 @@ const loadData = (state) => {
 
 
 
-    // TODO: The following code into a function
-    let selectName;
-    let filtersName = `#${state.filtersID}`;
-
-    if (state.comparisonMode) {
-      selectName = (state.canvasID.includes('Right'))? '#projectionColorRight':'#projectionColorLeft';
-    } else {
-      selectName = '#projectionColor';
-    }
-
-    $(`${selectName} option:not(:first)`).remove().end();
-    $(`${filtersName} .filter-select option:not(:first)`).remove().end();
-
-    state = resetFilters(state);
-
-    response['discrete'].forEach(d => {
-      d.selected = d.domain;
-      let attrName = d['name'];
-      $(`${selectName}`).append(new Option(attrName, attrName));
-      state.discrete.push(d);
-      $(`${filtersName} .filter-select`).append(new Option(attrName, attrName));
-      // state.discreteFilters[attrName] = d.domain;
-    })
-
-    response['continuous'].forEach(d => {
-      d.filterRange = [d.min, d.max];
-      let attrName = d['name'];
-      $(`${selectName}`).append(new Option(attrName, attrName));
-      state.continuous.push(d);
-      // state.continuousFilters[attrName] = [d.min, d.max];
-
-      // Update range filters 
-      $(`${filtersName} .filter-select`).append(new Option(attrName, attrName));
-
-    })
-
-    if ($(`${selectName} option[value='${state.projectionColor}']`).length > 0) {
-      $(`${selectName}`).val(state.projectionColor);
-    }
+    
     state.responseData = response;
     state = renderProjection(response, projectionSVG, projectionWidth, projectionHeight, 'encoder', state);
     $('#loader').hide();

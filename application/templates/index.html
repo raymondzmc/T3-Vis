@@ -147,14 +147,14 @@
                                 </select>
                             </div>
                         </div> -->
-                        <div class="col-6">
+<!--                         <div class="col-6">
                             <div class="card-input input-group">
                                 <div class="input-group-text">Color</div> 
                                 <select class="form-select" id="projectionColor">
                                     <option selected value='None'>None</option>
                                 </select>
                             </div>
-                        </div>
+                        </div> -->
 <!--                         <div class="col-4">
                             <div class="card-input input-group">
                                 <div class="input-group-text">Checkpoint</div> 
@@ -181,20 +181,20 @@
                     </div>
                     <div class="row svg-container" id="projectionView"></div>
                     
-                    <div class="row justify-content-md-center" id="sliderContainer">
-                        <div class="col-6" id="filters-left">
+                    <div class="row justify-content-md-center" id="slider-container">
+                        <div class="col-6" id="filter">
                             <div class="card-input input-group">
                                 <div class="input-group-text">Select Attribute:</div>
-                                <select class="form-select filter-select" id="filter-select-left">
-                                    <option disabled selected value="none"> -- select an attribute -- </option>
+                                <select class="form-select" id="color-select">
+                                    <option selected value="none"> None </option>
                                 </select>
-                                <div class="range-slider" id="range-slider-left" style="display: none;"></div>
-                                <div class="input-group-text" id="range-value-left" style="display: none;">0-0</div>
-                                <select class="categorical-select" id="categorical-select-left" multiple style="display: none;">
+                                <div class="range-slider" id="range-slider" style="display: none;"></div>
+                                <div class="input-group-text" id="range-value" style="display: none;">0-0</div>
+                                <select class="categorical-select" id="categorical-select" multiple style="display: none;">
                                 </select>
                             </div>
                         </div>
-                        <div class="col-6" id="filters-right" style="display: none;">
+<!--                         <div class="col-6" id="filters-right" style="display: none;">
                             <div class="card-input input-group">
                                 <div class="input-group-text">Select Attribute:</div>
                                 <select class="form-select filter-select" id="filter-select-right">
@@ -205,7 +205,7 @@
                                 <select class="categorical-select" id="categorical-select-right" multiple style="display: none;">
                                 </select>
                             </div>
-                        </div>
+                        </div> -->
 <!--                         <div class="col-4">
                             <div class="card-input input-group">
                                 <div class="input-group-text">Loss Range:</div>
@@ -282,16 +282,16 @@
                 <div class="card-block">
                     <div class="row">
                         <div class="col-7">
-                            <div class="btn-group card-input" role="group" id="interpretationSelect">
+                            <div class="btn-group card-input" role="group" id="interpretation-select">
                                 <div class="input-group-text">Interpretation Method</div>
-                                <input type="radio" class="btn-check" value="attention" name="interpretation" id="interpAttention" autocomplete="off" checked="true" />
-                                <label class="btn btn-outline-primary" for="interpAttention">Attention</label>
+                                <input type="radio" class="btn-check" value="attention" name="interpretation" id="interpret-attention" autocomplete="off" checked="true" />
+                                <label class="btn btn-outline-primary" for="interpret-attention">Attention</label>
 
-                                <input type="radio" class="btn-check" value="inputGrad" name="interpretation" id="interpInputGrad"  autocomplete="off"/>
-                                <label class="btn btn-outline-primary" for="interpInputGrad">Input Gradients</label>
+                                <input type="radio" class="btn-check" value="attribution" name="interpretation" id="interpret-attribution"  autocomplete="off"/>
+                                <label class="btn btn-outline-primary" for="interpret-attribution">Attribution</label>
 
-                                <input type="radio" class="btn-check" value="lrp" name="interpretation" id="interpLrp" autocomplete="off"/>
-                                <label class="btn btn-outline-primary" for="interpLrp">LRP</label>
+<!--                                 <input type="radio" class="btn-check" value="lrp" name="interpretation" id="interpLrp" autocomplete="off"/>
+                                <label class="btn btn-outline-primary" for="interpLrp">LRP</label> -->
                             </div>
                         </div>
                     </div>

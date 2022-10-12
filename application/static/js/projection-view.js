@@ -1,5 +1,5 @@
 import { scrollContent, highlightContent, checkArrays } from './utils.js';
-import { renderInstanceView } from './instance-view.js';
+import { renderInstanceView, renderColor } from './instance-view.js';
 import { renderImportanceFromState } from './component-view.js';
 import { legend } from './legend.js';
 
@@ -31,6 +31,20 @@ const renderTable = (filteredIDs) => {
      }
   });
 }
+
+
+const resetFilters = (state) => {
+  state.discrete = [];
+  state.continuous = [];
+  state.projectionColor = $("#color-select option:selected").val();
+  // Hide dropdown and slider
+  $(`#btn-group-categorical-select`).hide();
+  $(`#range-slider`).hide();
+  $(`#range-value`).hide();
+
+  return state;
+}
+
 
 
 const toggleModeSelect = () => {
@@ -70,7 +84,7 @@ export const selectExample = (id, state) => {
 
       state.encoderAttentions = response['encoder_attentions'];
       state.crossAttentions = response['cross_attentions'];
-      console.log(state);
+      state.attributions = response['attributions'];
 
 
       $("#instanceAttention").prop("disabled", false);
@@ -101,50 +115,21 @@ export const selectExample = (id, state) => {
 
 
 
-export const selectToken= (id, state) => {
-  // let exampleID = (typeof(id) === 'string')? +id.split('-')[1]: id;
-  let tokenID = id;
-  state.selectedOutput = tokenID;
-  // state.selectedIdx.clear();
-  // state.selectedIdx.add(id);
-  // state['example_id'] = exampleID;
-
-  // const server_query = d3.json('../api/eval_one', {
-  //     method: "POST",
-  //     body: JSON.stringify(state),
-  //     headers: {
-  //         "Content-type": "application/json; charset=UTF-8"
-  //     }
-  // })
-
-  // server_query.then(response => {
-  //     state['attention'] = response['attn'];
-  //     let importance = response['head_importance'];
-  //     let attn_patten = response['attn_pattern'];
-
-  //     state.instance_importance = importance;
-  //     state.instance_pattern = attn_patten;
-  //     $("#instanceAttention").prop("disabled", false);
-  //     state.tokenIdx = null;
-  //     state = renderInstanceView(
-  //       response['input_tokens'],
-  //       response['output_tokens'],
-  //       response['input_saliency'],
-  //       // response['label'],
-  //       // response['loss'],
-  //       '#input-token-container',
-  //       '#output-token-container',
-  //       state,
-  //     );
-
-  //     state = renderProjection(response['output_projections'], state.projectionSVG, state.projectionWidth, state.projectionHeight, 'decoder', state);
-
-  //     let attentionSVG = d3.select("#attention-svg");
-
-
-  //     // state = renderImportanceFromState(attentionSVG, state);
-  //     $('#loader').hide();
-  // });
+export const selectToken = (id, state) => {
+  let tokenIdx = id + 1; // Since hidden states start from the first generated token
+  state.selectedOutput = tokenIdx;
+  
+  // TODO: Redundant with function in $(#interpretation-select) in "index.js"
+  if (state.interpretation === 'attention') {
+    if (state.selectedOutput !== null && state.decoderAttentions !== null) {
+      renderColor(state.crossAttentions[state.selectedOutput], state.decoderAttentions[state.selectedOutput], 'output', state);
+    }
+  } else if (state.interpretation === 'attribution') {
+    state.selectedInput = null;
+    if (state.selectedOutput !== null && state.attributions !== null) {
+      renderColor(state.attributions[state.selectedOutput]['input'], state.attributions[state.selectedOutput]['output'], 'output', state);
+    }
+  }
   return state;
 }
 
@@ -154,34 +139,34 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
   state.projectionMode = mode;
 
   // Use decoder order as the default color encoding
-  if (mode === 'decoder') {
-    state.projectionColor = 'id';
-  } else {
-    state.projectionColor = "None";
-  }
+  // if (mode === 'decoder') {
+  //   state.projectionColor = 'id';
+  // } else {
+  //   state.projectionColor = state.;
+  // }
 
   let margin = {top: 10, right: 10, bottom: 50, left: 100};
   let innerWidth = width - margin.left - margin.right;
   let innerHeight = height - margin.top - margin.bottom;
 
-  let loc = state.filtersID.split('-').slice(-1)[0];
+  // let loc = state.filtersID.split('-').slice(-1)[0];
 
-  if (state.canvasID.includes('Right')) {
-    margin.left = innerWidth / 2 + 250;
-  }
+  // if (state.canvasID.includes('Right')) {
+  //   margin.left = innerWidth / 2 + 250;
+  // }
 
-  if (state.comparisonMode) {
-    innerWidth = innerWidth / 2;
-  } else {
-    svg.selectAll(`#axis-g-right`).remove();
-  }
+  // if (state.comparisonMode) {
+  //   innerWidth = innerWidth / 2;
+  // } else {
+  //   svg.selectAll(`#axis-g-right`).remove();
+  // }
 
   // console.log(state.predictionRange);
   // let predictionRange = [-9999, 9999];
   // let lossRange = [-9999, 9999];
 
   // Remove previous drawn axes
-  svg.selectAll(`#axis-g-${loc}`).remove();
+  svg.selectAll(`#axis-g`).remove();
   let quadTreeData = data['x'].map((x, i) => [data['ids'][i], x, data['y'][i]])
   // Initialize a quadtree for searching nearby points
   let quadTree = d3.quadtree()
@@ -215,7 +200,7 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
   // Append axes to the canvas
   let axisG = svg.append('g')
     .attr('transform', `translate(${margin.left}, ${margin.top})`)
-    .attr('id', `axis-g-${loc}`);
+    .attr('id', `axis-g`);
 
   let xAxis = d3.axisBottom()
     .scale(xScale)
@@ -294,31 +279,17 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
 
       // Selection in decoder mode
       else {
-        state.selectedOutput = index;
-
-        // $('#projectionMode').on('click', function(event) {
-        //   renderProjection(data, svg, width, height, mode, state);
-        //   toggleModeSelect();
-        // })
-
-        console.log(`selected decoder token ${index}`)
+        selectToken(index, state);
+        console.log(`selected decoder token ${index + 1}`)
       }
-
       // scrollContent(index);
       draw(transform);
     }
-
   });
 
 
   // canvas.call(zoomBehaviour);
   let context = canvas.node().getContext('2d');
-
-
-  // Indices for a subset of points to draw when zooming
-  // let subsetSize = 250;
-  // let randomIdx = _.sample(_.range(data.length), subsetSize);
-
   let range, index, value;
 
   const draw = (transform) => {
@@ -333,27 +304,27 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
     let colorDomain;
 
     // Discrete attribute
-    if (state['discrete'].map(attr => attr.name).includes(colorAttrName)) {
-      colorAttr = state['discrete'].find(attr => attr.name === colorAttrName);
+    if (data['discrete'].map(attr => attr.name).includes(colorAttrName)) {
+      colorAttr = data['discrete'].find(attr => attr.name === colorAttrName);
       colorDomain = colorAttr.domain;
       // attrDomain = state['discrete'][attrName].domain;
     } 
     // Continuous attribute
-    else if (state['continuous'].map(attr => attr.name).includes(colorAttrName)) {
-      colorAttr = state['continuous'].find(attr => attr.name === colorAttrName);
+    else if (data['continuous'].map(attr => attr.name).includes(colorAttrName)) {
+      colorAttr = data['continuous'].find(attr => attr.name === colorAttrName);
       colorDomain = [colorAttr.min, colorAttr.max];
     }
 
-    else if (colorAttrName == 'id') {
-      colorAttr = {'values': data['ids']};
-      colorDomain = [0, data['ids'].length - 1];
-    }
+    // else if (colorAttrName == 'id') {
+    //   colorAttr = {'values': data['ids']};
+    //   colorDomain = [0, data['ids'].length - 1];
+    // }
 
     context.clearRect(0, 0, innerWidth, innerHeight);
 
     let filteredIDs = [];
     let selectedPoint = null;
-    let selectedIdx = (mode === 'encoder')? state.selectedExample : state.selectedOutput;
+    let selectedIdx = (mode === 'encoder')? state.selectedExample : state.selectedOutput - 1;
 
     data['ids'].forEach((id, i) => {
       context.strokeWidth = 1;
@@ -435,52 +406,38 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
       draw(transform);
       context.restore();
     })
-    // .on('end', (event, d) => {
-    //   zoomEndTimeout = setTimeout(function() {
-    //     draw(event.transform);
-    //   }, 250);
-    // });
   canvas.call(zoomBehaviour);
 
-  // TODO: Remove this
-  let selectName;
-  // if (state.comparisonMode) {
-  //   selectName = (state.canvasID.includes('Right'))? '#projectionColorRight':'#projectionColorLeft';
-  // } else {
-  //   selectName = '#projectionColor';
-  // }
 
   // Changing encoded color
-  $(`${selectName}`).on('change', function(){
-    let selectedValue = $(this).find(":selected").attr('value');
-    state.projectionColor = selectedValue;
-    draw(transform);
-  })
+  // $('#projectionColor').on('change', function(){
+    
+  // })
 
   // Content View
-  $(".content").on('click', function(){
-    let id = +$(this).attr('id').split('-')[1];
-    state = selectExample(id, state);
-    if (state.selectedIdx.has(id)) {
-      state.selectedIdx.delete(id);
-    } else {
-      state.selectedIdx.add(id);
-    }
-    highlightContent(id);
-    draw(transform);
-  }).mouseenter(function() {
-    let id = `example-${$(this).attr('id').split('-')[1]}`;
-    hoverExample(id);
-  }).mouseleave(endHover);
+  // $(".content").on('click', function(){
+  //   let id = +$(this).attr('id').split('-')[1];
+  //   state = selectExample(id, state);
+  //   if (state.selectedIdx.has(id)) {
+  //     state.selectedIdx.delete(id);
+  //   } else {
+  //     state.selectedIdx.add(id);
+  //   }
+  //   highlightContent(id);
+  //   draw(transform);
+  // }).mouseenter(function() {
+  //   let id = `example-${$(this).attr('id').split('-')[1]}`;
+  //   hoverExample(id);
+  // }).mouseleave(endHover);
 
   // Initialize sliders based on range
   
-  let sliderID = `#range-slider-${loc}`;
+  let sliderID = `#range-slider`;
   // $(sliderID).slider("destroy");
   if ($(sliderID).data("uiSlider")){
     $(sliderID).slider("destroy");
-    $(`#range-value-${loc}`).html('0-0');
-    $(`#filter-select-${loc}`).val("none");
+    $(`#range-value`).html('0-0');
+    $(`#filter-select`).val("none");
   }
 
 
@@ -492,36 +449,36 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
     step: 0.01,
     values: [0, 0],
     slide: function( event, ui ) {
-      $(`#range-value-${loc}`).html(`${ui.values[0].toFixed(3)}-${ui.values[1].toFixed(3)}`);
+      $(`#range-value`).html(`${ui.values[0].toFixed(3)}-${ui.values[1].toFixed(3)}`);
 
-      let attrName = $(`#filter-select-${loc} option:selected`).val();
+      let attrName = $(`#filter-select option:selected`).val();
       let attrIndex = state.continuous.findIndex(d => d.name === attrName);
 
       state.continuous[attrIndex].filterRange = ui.values;
 
 
       let filteredIDs = draw(transform);
-      renderTable(filteredIDs);
+      // renderTable(filteredIDs);
       // d3.selectAll('.example')
       //   .style('visibility', d => ((1 - d[4]) > state.predictionRange[0] && (1 - d[4]) < state.predictionRange[1])? 'visible' : 'hidden');
       // console.log(state.predictionRange, ui.values)
     }
   });
 
-  $(`#categorical-select-${loc}`).off('change');
-  $(`#categorical-select-${loc}`).on('change', function(){
+  $(`#categorical-select`).off('change');
+  $(`#categorical-select`).on('change', function(){
     let attrName = $(`#filter-select-${loc} option:selected`).val();
     let attrIndex = state.discrete.findIndex(d => d.name === attrName);
 
     // There's probably a much cleaner way to do this, look to change later
-    let selected = Array.from(document.querySelectorAll(`#btn-group-categorical-select-${loc} > .vsb-menu > ul.multi > li.active`))
+    let selected = Array.from(document.querySelectorAll(`#btn-group-categorical-select > .vsb-menu > ul.multi > li.active`))
       .map(d => d.getAttribute('value'));
 
     // Re-draw canvas
     if (!checkArrays(selected, state.discrete[attrIndex].selected)) {
       state.discrete[attrIndex].selected = selected;
       let filteredIDs = draw(transform);
-      renderTable(filteredIDs);
+      // renderTable(filteredIDs);
 
     }
 
@@ -535,6 +492,109 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
        .ease(d3.easeLinear)
        .call(zoomBehaviour.transform, t)
   });
+
+
+
+
+
+  // TODO: The following code into a function
+  let selectName = '#projectionColor';
+  // let filtersName = `#${state.filtersID}`;
+
+  // $(`${selectName} option:not(:first)`).remove().end();
+  $('#color-select option:not(:first)').remove().end();
+
+
+  data['discrete'].forEach(d => {
+    d.selected = d.domain;
+    let attrName = d['name'];
+    // $(`${selectName}`).append(new Option(attrName, attrName));
+    state.discrete.push(d);
+    $(`#color-select`).append(new Option(attrName, attrName));
+    // state.discreteFilters[attrName] = d.domain;
+  })
+
+  data['continuous'].forEach(d => {
+    d.filterRange = [d.min, d.max];
+    let attrName = d['name'];
+    // $(`${selectName}`).append(new Option(attrName, attrName));
+    state.continuous.push(d);
+    // state.continuousFilters[attrName] = [d.min, d.max];
+
+    // Update range filters 
+    $('#color-select').append(new Option(attrName, attrName));
+
+  })
+  state = resetFilters(state);
+
+  $(`${selectName}`).val(state.projectionColor);
+  // console.log($(`${selectName} option[value='${state.projectionColor}']`).length)
+  // if ($(`${selectName} option[value='${state.projectionColor}']`).length > 0) {
+  // }
+
+  // When a selection is made
+  $('#color-select').on('change', function(){
+    // let selectedField = $(this).attr('id');
+    let selectedValue = $(this).find(":selected").val();
+    state.projectionColor = selectedValue;
+    draw(transform);
+    // let selectedClassList = $(this).attr('class').split(' ');
+    // state[selectedField] = selectedValue;
+    // let selectedValue = $(this).find(":selected").attr('value');
+    // For projection filter selections
+    // if (selectedClassList.includes('color-select')){
+      // let isComparison = selectedField.includes('right');
+      // let loc = (isComparison)? 'right' : 'left';
+    let attribute;
+      // For categorical attributes
+    if (data.discrete.find(attr => attr.name === selectedValue) !== undefined) {
+      attribute = state.discrete.find(attr => attr.name === selectedValue);
+        
+      $(`#categorical-select option`).remove().end();
+
+      // Create option for all values in the domain
+      attribute.domain.forEach(val => {
+        $(`#categorical-select`).append(new Option(val, val, attribute.selected.includes(val)));
+      })
+      state.discreteSelect = new vanillaSelectBox(`#categorical-select`, {
+        'disableSelectAll': true,
+      });
+
+      // Hide slider and show dropdown
+      $(`#range-slider`).hide();
+      $(`#range-value`).hide();
+      // $(`#categorical-select-${loc}`).show();
+      $(`#btn-group-categorical-select`).show();
+
+    } 
+
+      // For continuous attributes
+    else if (data.continuous.find(attr => attr.name === selectedValue) !== undefined){
+      attribute = data.continuous.find(attr => attr.name === selectedValue);
+
+      // Update slider with current selected range
+      $(`#range-value`).html(`${attribute.filterRange[0].toFixed(3)}-${attribute.filterRange[1].toFixed(3)}`)
+      $(`#range-slider`).slider('option', {
+        min: attribute.min,
+        max: attribute.max,
+        step: (attribute.max - attribute.min) / 100,
+        values: attribute.filterRange,
+      });
+
+      // Hide dropdown and show slider
+      // $(`#categorical-select-${loc}`).hide();
+      $(`#btn-group-categorical-select`).hide();
+      $(`#range-slider`).show();
+      $(`#range-value`).show();
+
+    }
+
+  })
+
+
+
+
+
 
   return state;
 }

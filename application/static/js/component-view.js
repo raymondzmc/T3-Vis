@@ -45,7 +45,7 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
   const yScale = d3
     .scaleBand()
     .domain(Array.from({length: data.length}, (_, i) => i + 1))
-    .range([marginY, marginY + innerHeight])
+    .range([marginY + innerHeight, marginY])
     .padding(0.05);
 
   // Axis
@@ -53,7 +53,7 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
 
   svg.append('g')
     .attr('class', 'x-axis')
-    .attr('transform', `translate(0, ${yScale.range()[1]})`)
+    .attr('transform', `translate(0, ${yScale.range()[0]})`)
     .style('font-size', 15)
     .call(d3.axisBottom(xScale).tickSize(0))
     .select(".domain").remove()
@@ -97,11 +97,6 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
 
   cellsEnter.merge(cells)
     .on('click', function() {
-
-      // Check if the head has been pruned
-      // if (d3.select(this.parentNode).size() === 0) {
-      //   return
-      // }
       let head = d3.select(this).attr('class').match(/(\d+)/)[0];
       let layer = d3.select(this.parentNode).attr('class').match(/(\d+)/)[0];
       state[`${headType}Head`] = [layer, head];
@@ -118,46 +113,44 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
       svg.select(`.x-axis > .tick.head-${head}`).classed('selected', true);
       svg.select(`.y-axis > .tick.layer-${layer}`).classed('selected', true);
 
-      $('#loader').show();
-      const server_query = d3.json('../api/attentions', {
-        method: "POST",
-        body: JSON.stringify({
-          'attention_type': headType,
-          'layer': layer,
-          'head': head,
-        }),
-        headers: {
-          "Content-type": "application/json; charset=UTF-8"
-        }
-      })
+      // Render the token-level heatmap if "attention" is selected
+      if (state.selectedExample !== null) {
 
-      server_query.then(response => {
-
-        // Update state with attention maps
-        if (headType === 'encoder'){
-          state.encoderAttentions = response['encoder_attentions'];
-          if (state.selectedInput != null){
-            renderColor(state.encoderAttentions[state.selectedInput], [], 'input', state);
+        $('#loader').show();
+        const server_query = d3.json('../api/attentions', {
+          method: "POST",
+          body: JSON.stringify({
+            'attention_type': headType,
+            'layer': layer,
+            'head': head,
+          }),
+          headers: {
+            "Content-type": "application/json; charset=UTF-8"
           }
-        } 
+        })
 
-        else {
-          state.crossAttentions = response['cross_attentions'];
-          state.decoderAttentions = response['decoder_attentions'];
+        // TODO: Don't send requests if an example havent't been selected "if (state.selectedInput != null){} "
+        server_query.then(response => {
+          // Update state with attention maps
+          if (headType === 'encoder'){
+            state.encoderAttentions = response['encoder_attentions'];
+            if (state.selectedInput !== null && state.interpretation === 'attention') {
+              renderColor(state.encoderAttentions[state.selectedInput], [], 'input', state);
+            }
+          } 
 
-          if (state.selectedOutput != null){
-            renderColor(
-              state.crossAttentions[state.selectedOutput],
-              state.decoderAttentions[state.selectedOutput],
-              'output',
-              state
-            );
+          else if (headType === 'decoder') {
+            state.crossAttentions = response['cross_attentions'];
+            state.decoderAttentions = response['decoder_attentions'];
+            if (state.selectedOutput !== null && state.interpretation === 'attention'){
+              renderColor(state.crossAttentions[state.selectedOutput], state.decoderAttentions[state.selectedOutput], 'output', state);
+            }
           }
 
-        }
+          $('#loader').hide();
+        });
 
-        $('#loader').hide();
-      });
+      }
 
 
 
@@ -169,24 +162,73 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
       d3.select(this).select('.border').classed('hovered', false);
     })
 
-  let rect = cellsEnter.append('rect').merge(cells.selectAll('rect'));
-  let rectEnter = rect.enter();
+  if (headType === 'encoder') {
+    let rect = cellsEnter.append('rect');
+    // .merge(cells.selectAll('rect')); 
+    let rectEnter = rect.enter();
+
+    rectEnter.merge(rect)
+      // .attr('class', (d, i) => `head-${i + 1}`)
+      .attr('height', yScale.bandwidth())
+      .attr('width', xScale.bandwidth())
+      .attr('ry', yScale.bandwidth() * 0.1)
+      .attr('rx', xScale.bandwidth() * 0.1)
+      .attr('fill', d => d3.interpolateReds(d));
+      // .on('click', clickHead)
+
+    cellsEnter.append('text').merge(cells.selectAll('text'))
+      .attr('dx', `${xScale.bandwidth() / 4}`)
+      .attr('dy', `${yScale.bandwidth() / 2}`)
+      .style('font-size', `${yScale.bandwidth() / 3.5}px`)
+      .text(d => d.toFixed(2));
+
+  } else {
+    let rectTop = cellsEnter.append('rect')
+      .attr('class', 'rect-top');
+    let rectTopEnter = rectTop.enter();
+    rectTopEnter.merge(rectTop)
+      .attr('height', yScale.bandwidth() / 2)
+      .attr('width', xScale.bandwidth())
+      .attr('ry', yScale.bandwidth() * 0.1)
+      .attr('rx', xScale.bandwidth() * 0.1)
+      .attr('fill', d => d3.interpolateBlues(d[0]));
+    let textTop = cellsEnter.append('text')
+      .attr('class', 'text-top');
+    textTop.merge(cells.selectAll('text.text-top'))
+      .attr('dx', `${xScale.bandwidth() / 4}`)
+      .attr('dy', `${yScale.bandwidth() / 4 + yScale.bandwidth() * 0.1}`)
+      .style('font-size', `${yScale.bandwidth() / 3.5}px`)
+      .text(d => d[1].toFixed(2));
+
+    let rectBottom = cellsEnter.append('rect')
+      .attr('class', 'rect-bottom');
+    let rectBottomEnter = rectBottom.enter();
+    rectBottomEnter.merge(rectBottom)
+      .attr('height', yScale.bandwidth() / 2)
+      .attr('width', xScale.bandwidth())
+      .attr('ry', yScale.bandwidth() * 0.1)
+      .attr('rx', xScale.bandwidth() * 0.1)
+      .attr('y', yScale.bandwidth() / 2)
+      .attr('fill', d => d3.interpolateReds(d[1]));
+    let textBottom = cellsEnter.append('text')
+      .attr('class', 'text-bottom');
+    textBottom.merge(cells.selectAll('text.text-bottom'))
+      .attr('dx', `${xScale.bandwidth() / 4}`)
+      .attr('dy', `${yScale.bandwidth() - yScale.bandwidth() * 0.1}`)
+      .style('font-size', `${yScale.bandwidth() / 3.5}px`)
+      .text(d => d[0].toFixed(2));
+    // cellsEnter.append('text').merge(cells.selectAll('text'))
+    //   .attr('dx', `${xScale.bandwidth() / 4}`)
+    //   .attr('dy', `${yScale.bandwidth() / 2}`)
+    //   .style('font-size', `${yScale.bandwidth() / 3.5}px`)
+    //   .text(d => d[1].toFixed(2));
 
 
-  rectEnter.merge(rect)
-    // .attr('class', (d, i) => `head-${i + 1}`)
-    .attr('height', yScale.bandwidth())
-    .attr('width', xScale.bandwidth())
-    .attr('ry', yScale.bandwidth() * 0.1)
-    .attr('rx', xScale.bandwidth() * 0.1)
-    .attr('fill', d => d3.interpolateReds(d))
-    // .on('click', clickHead)
 
-  cellsEnter.append('text').merge(cells.selectAll('text'))
-    .attr('dx', `${xScale.bandwidth() / 4}`)
-    .attr('dy', `${yScale.bandwidth() / 2}`)
-    .style('font-size', `${yScale.bandwidth() / 3.5}px`)
-    .text(d => d.toFixed(2));
+    // .merge(cells.selectAll('rect'));
+    // let rectEnter = rect.enter();
+
+  }
 
   // console.time('createRandom');
   // let testAttention = [];

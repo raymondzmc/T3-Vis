@@ -1,8 +1,13 @@
+
+export const clearColor = () => {
+  d3.selectAll('.clickable')
+    .style('outline', 'none')
+    .style('background-color', '#eee');
+}
+
 export const renderColor = (inputColor, outputColor, selected, state) => {
 
-  d3.selectAll('.clickable')
-      .style('outline', 'none')
-      .style('background-color', '#eee');
+  clearColor();
 
   if (selected === 'input') {
     d3.select(`#input-token-${state.selectedInput}`)
@@ -41,15 +46,14 @@ export const renderColor = (inputColor, outputColor, selected, state) => {
   })
 }
 
-export const renderInstanceView = (tokens, output, inputSaliency, inputContainer, outputContainer, state) => {
-
-  let inputs = d3.select(inputContainer).selectAll('li.input-token').data(tokens);
-  let outputs = d3.select(outputContainer).selectAll('li.output-logit').data(output);
-
+export const renderInstanceView = (inputTokens, outputTokens, inputSaliency, inputContainer, outputContainer, state) => {
+  let inputs = d3.select(inputContainer).selectAll('li.input-token').data(inputTokens);
+  let outputs = d3.select(outputContainer).selectAll('li.output-token').data(outputTokens);
   let inputsEnter = inputs.enter().append('li');
   let outputsEnter = outputs.enter().append('li');
-  d3.select('#input-container-title').text(`Input Tokens:`)
-  d3.select('#output-container-title').text(`Output Tokens:`)
+  d3.select('#input-container-title').text(`Input Tokens:`);
+  d3.select('#output-container-title').text(`Output Tokens:`);
+
   let metadataList = d3.select('#instance-metadata-list');
   
   metadataList.selectAll('li').remove()
@@ -83,7 +87,7 @@ export const renderInstanceView = (tokens, output, inputSaliency, inputContainer
   // let height = $("#modal").height() / 2;
   // let margin = {'top': 20, 'left': 0, 'right': 0, 'bottom': 50}
 
-  d3.select('svg.svg-container').remove();
+  // d3.select('svg.svg-container').remove();
 
   d3.selectAll('.clickable')
       .style('outline', 'none')
@@ -91,20 +95,29 @@ export const renderInstanceView = (tokens, output, inputSaliency, inputContainer
 
   inputsEnter.merge(inputs)
     .on('click', function() {
-      state.selectedInput = d3.select(this).attr('id').split('-')[2];
-      if (state.encoderHead != null) {
-        let color = state.encoderAttentions[state.selectedInput];
-        renderColor(color, [], 'input', state);
+      if (state.interpretation === 'attention' && state.encoderAttentions != null) {
+        state.selectedOutput = null;
+        state.selectedInput = d3.select(this).attr('id').split('-')[2];
+        let colors = state.encoderAttentions[state.selectedInput];
+        renderColor(colors, [], 'input', state);
       }
     });
 
   outputsEnter.merge(outputs)
     .on('click', function() {
-      state.selectedOutput = d3.select(this).attr('id').split('-')[2];
-      if (state.decoderHead != null) {
-        let inputColor = state.crossAttentions[state.selectedOutput];
-        let outputColor = state.decoderAttentions[state.selectedOutput];
-        renderColor(inputColor, outputColor, 'output', state);
+      let selectedOutput = d3.select(this).attr('id').split('-')[2];
+      if (state.interpretation === 'attention' && state.decoderHead != null) {
+        state.selectedInput = null;
+        state.selectedOutput = selectedOutput;
+        let inputColors = state.crossAttentions[selectedOutput];
+        let outputColors = state.decoderAttentions[selectedOutput];
+        renderColor(inputColors, outputColors, 'output', state);
+      } else if (state.interpretation === 'attribution' && state.attributions != null) {
+        state.selectedInput = null;
+        state.selectedOutput = selectedOutput;
+        let inputColors = state.attributions[selectedOutput]['input'];
+        let outputColors = state.attributions[selectedOutput]['output'];
+        renderColor(inputColors, outputColors, 'output', state);
       }
     });
 
