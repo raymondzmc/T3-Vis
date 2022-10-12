@@ -53,9 +53,9 @@ class T3_Visualization(object):
         self.num_attention_heads = self.model.num_attention_heads
         self.pruned_heads = collections.defaultdict(list)
 
-        self.table_headings = tuple(self.dataset.visualize_columns)
-        self.table_content = [{col_name: row[col_name] for col_name in self.table_headings} for i, row in
-                              enumerate(self.dataset) if (args.n_examples and i < args.n_examples)]
+        # self.table_headings = tuple(self.dataset.visualize_columns)
+        # self.table_content = [{col_name: row[col_name] for col_name in self.table_headings} for i, row in
+        #                       enumerate(self.dataset) if (args.n_examples and i < args.n_examples)]
 
         # Temp
         self.decoder_projections = torch.load(pjoin(self.resource_dir, 'decoder_projections.pt'))
@@ -105,7 +105,7 @@ class T3_Visualization(object):
         """
         results = {}
 
-        self.model.train()
+        
         # self.model.zero_grad()
         # register_hooks(self.model)
         example = self.dataset[idx]
@@ -127,13 +127,19 @@ class T3_Visualization(object):
         model_input['max_length'] = 512
         model_input['return_dict_in_generate'] = True
         model_input['output_attentions'] = True
+        model_input['output_scores'] = True
         # print(model_input['input_ids'].shape)
         # results['decoder_projections'] = {}
         # results['decoder_projections']['x'] = np.array(self.decoder_projections[idx])[:, 0].tolist()
         # results['decoder_projections']['y'] = np.array(self.decoder_projections[idx])[:, 1].tolist()
         # batch['output_hidden_states'] = True
 
-        output = self.model.generate(**model_input)
+        self.model.eval()
+        with torch.no_grad():
+            output = self.model.generate(**model_input)
+        
+
+        
         # output_ids = output['sequences']
         # logits = output['logits']
 
@@ -193,12 +199,22 @@ class T3_Visualization(object):
         # input_saliency = compute_input_saliency(self.model, len(example['input_ids']), example['input_ids'],
         #                                         output['sequences'])
 
-        # Dummy values for attribution
+        model_input['interpretation'] = True
+        model_input['best_indices'] = output['sequences'][0].tolist()
+        model_input['best_beam_indices'] = output['beam_indices'][0, :-1].tolist()
+        model_input['input_indices'] = model_input['input_ids'][0].tolist()
+
         results['attributions'] = [{
             'input': np.random.rand(len(results['input_tokens'])).tolist() if step > 0 else [],
             'output': np.random.rand(step).tolist(),
         } for step in range(len(results['output_tokens']))]
         
+        self.model.train()
+        output = self.model.generate(**model_input)
+        results['attributions'] = output.saliency
+        results['attributions'].insert(0, {'input': [],'output': [],})
+
+        # Dummy values for attribution
         return results
 
 
@@ -207,8 +223,8 @@ class T3_Visualization(object):
 def index():
     return flask.render_template(
         'index.html',
-        headings=t3_vis.table_headings,
-        content=t3_vis.table_content,
+        # headings=t3_vis.table_headings,
+        # content=t3_vis.table_content,
         checkpoints=t3_vis.checkpoint_dirs,
         num_hidden_layers=range(t3_vis.num_hidden_layers + 1),
     )
