@@ -12,6 +12,7 @@ from os.path import join as pjoin
 from utils.input_saliency import register_hooks, compute_input_saliency
 from utils.head_importance import get_head_importance_pegasus
 from utils.helpers import normalize, format_attention, format_attention_image
+import chinese_converter
 
 import pdb
 
@@ -51,6 +52,7 @@ class T3_Visualization(object):
         self.dataset = eval(f"{args.dataset}()")
         self.num_hidden_layers = self.model.num_hidden_layers
         self.num_attention_heads = self.model.num_attention_heads
+        print(self.num_hidden_layers, self.num_attention_heads)
         self.pruned_heads = collections.defaultdict(list)
 
         # self.table_headings = tuple(self.dataset.visualize_columns)
@@ -175,6 +177,9 @@ class T3_Visualization(object):
 
         results['input_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(example['input_ids'].squeeze(0))
         results['output_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(output['sequences'].squeeze(0))
+
+        results['output_tokens'] = [chinese_converter.to_simplified(x) for x in results['output_tokens']]
+
         output_len = len(results['output_tokens']) - 1
 
         output_projection = {}
@@ -209,10 +214,10 @@ class T3_Visualization(object):
             'output': np.random.rand(step).tolist(),
         } for step in range(len(results['output_tokens']))]
         
-        self.model.train()
-        output = self.model.generate(**model_input)
-        results['attributions'] = output.saliency
-        results['attributions'].insert(0, {'input': [],'output': [],})
+        # self.model.train()
+        # output = self.model.generate(**model_input)
+        # results['attributions'] = output.saliency
+        # results['attributions'].insert(0, {'input': [],'output': [],})
 
         # Dummy values for attribution
         return results
@@ -342,14 +347,13 @@ def get_data():
     #     aggregate_encoder_attn[i]['attn'] = json.dumps(aggregate_encoder_attn[i]['attn'])
 
     # importance = torch.load(pjoin(checkpoint_dir, 'head_importance.pt'))
-
-    # results['decoder_head_importance'] = np.random.rand(16, 16, 2).tolist()
-    # results['encoder_head_importance'] = np.random.rand(16, 16).tolist() # Deco
-    decoder_head_importance = torch.load(pjoin(t3_vis.resource_dir, 'decoder_head_importance.pt'))
-    decoder_head_importance[:, :, 0] = normalize(decoder_head_importance[:, :, 0])
-    decoder_head_importance[:, :, 1] = normalize(decoder_head_importance[:, :, 1])
-    results['decoder_head_importance'] = normalize(decoder_head_importance).tolist()
-    results['encoder_head_importance'] = normalize(torch.load(pjoin(t3_vis.resource_dir, 'encoder_head_importance.pt'))).tolist()
+    results['decoder_head_importance'] = np.random.rand(t3_vis.model.config.num_hidden_layers, t3_vis.model.config.num_attention_heads, 2).tolist()
+    results['encoder_head_importance'] = np.random.rand(t3_vis.model.config.num_hidden_layers, t3_vis.model.config.num_attention_heads).tolist() # Deco
+    # decoder_head_importance = torch.load(pjoin(t3_vis.resource_dir, 'decoder_head_importance.pt'))
+    # decoder_head_importance[:, :, 0] = normalize(decoder_head_importance[:, :, 0])
+    # decoder_head_importance[:, :, 1] = normalize(decoder_head_importance[:, :, 1])
+    # results['decoder_head_importance'] = normalize(decoder_head_importance).tolist()
+    # results['encoder_head_importance'] = normalize(torch.load(pjoin(t3_vis.resource_dir, 'encoder_head_importance.pt'))).tolist()
     # results['aggregate_attn'] = aggregate_encoder_attn
 
     return flask.jsonify(results)
