@@ -72,8 +72,10 @@ $('#projectionTabs > li > a').click(function() {
 // Attention View
 $("#attentionViewSelect").change(function(){
   let value = $(this).find(':checked').val();
+  console.log("value " + value)
   state.attentionView = value;
   if (value === 'importance') {
+    console.log("here ")
     d3.selectAll('.attn-pattern').attr('visibility', 'hidden');
   } else {
     d3.selectAll('.attn-pattern').attr('visibility', 'visible');
