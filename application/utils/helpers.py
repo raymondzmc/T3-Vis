@@ -11,7 +11,7 @@ def normalize(matrix, axis=None):
                  (matrix.max(axis=axis) - matrix.min(axis=axis))
     return normalized
 
-def format_attention_image(attention):
+def format_attention_image(attention, color='red'):
     formatted_attn = []
     for layer_idx in range(attention.shape[0]):
         for head_idx in range(attention.shape[1]):
@@ -27,9 +27,15 @@ def format_attention_image(attention):
             attn = np.array(attention[layer_idx, head_idx]).flatten()
             attn = (attn - attn.min()) / (attn.max() - attn.min())
             alpha = np.round(attn * 255)
-            red = np.ones_like(alpha) * 255
-            green = np.zeros_like(alpha) * 255
-            blue = np.zeros_like(alpha) * 255
+
+            if color == 'red':
+                red = np.ones_like(alpha) * 255
+                green = np.zeros_like(alpha) * 255
+                blue = np.zeros_like(alpha) * 255
+            elif color == 'blue':
+                blue = np.ones_like(alpha) * 255
+                green = np.zeros_like(alpha) * 255
+                red = np.zeros_like(alpha) * 255
 
             attn_data = np.dstack([red,green,blue,alpha]).reshape(alpha.shape[0] * 4).astype('uint8')
             formatted_entry['attn'] = attn_data.tolist()

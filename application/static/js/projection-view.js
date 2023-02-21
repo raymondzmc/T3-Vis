@@ -145,7 +145,7 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
   //   state.projectionColor = state.;
   // }
 
-  let margin = {top: 10, right: 10, bottom: 50, left: 100};
+  let margin = {top: 10, right: 10, bottom: 50, left: 300};
   let innerWidth = width - margin.left - margin.right;
   let innerHeight = height - margin.top - margin.bottom;
 
@@ -232,7 +232,7 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
     .attr('transform', 'rotate(-90)')
     .attr('y', (state.comparisonMode && loc === 'right')? -(innerWidth / 2 + 180) : -margin.left)
     .attr('x', 0 - (innerHeight / 2))
-    .attr('dy', margin.left / 2)
+    .attr('dy', margin.left - 40)
     .text(yLabel);
 
 
@@ -362,7 +362,7 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
           value = 0;
         }
 
-        let fillStyle = (colorAttrName === 'id')? d3.interpolateReds(value) : d3.interpolateRdYlBu(1 - value); 
+        let fillStyle = (colorAttrName === 'id')? d3.interpolateReds(value) : d3.interpolateReds(value); 
 
         if (selectedIdx === id) {
           selectedPoint = [cx, cy, fillStyle];   

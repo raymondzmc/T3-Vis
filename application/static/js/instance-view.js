@@ -11,10 +11,12 @@ export const renderColor = (inputColor, outputColor, selected, state) => {
 
   if (selected === 'input') {
     d3.select(`#input-token-${state.selectedInput}`)
-      .style("outline", 'thin solid red');
+      .style("outline", 'thin solid red')
+      .style("outline-width", '2px');
   } else {
     d3.select(`#output-token-${state.selectedOutput}`)
-      .style("outline", 'thin solid red');
+      .style("outline", 'thin solid red')
+      .style("outline-width", '2px');
   }
   // colorRight = attention['BERT-EXT'][selection.Layer - 1][selection.Head - 1][idx];
 

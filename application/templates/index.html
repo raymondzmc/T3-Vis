@@ -113,61 +113,14 @@
         <!-- Main visualization -->
         <div class="row inline-block align-items-center justify-content-evenly vis-row">
             <!-- Projection View -->
-            <div class="card col-md-9 pull-left">
+            <div class="card col-md-6 pull-right">
                 <div class="card-header">
-                    <h2> Hidden State Projection </h2>
-                    <!-- <ul class="nav nav-tabs card-header-tabs" id="projectionTabs" role="tablist">
-                        <li class="nav-item">
-                            <a class="nav-link active" aria-current="true" data-bs-toggle="tab" value="hidden" href="#">
-                                <h2> Hidden States </h2>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" aria-current="true" data-bs-toggle="tab" value="cartography" id="cartographyTab" href="#">
-                                <h2> Cartography </h2>
-                            </a>
-                        </li>
-                    </ul>
- -->
+                    <h2> Projection </h2>
                 </div>
                 <div class="card-block">
 
                     <div class="row" id="projection-options">
 
-                        <div class="col-6">
-                        <div class="row">
-
-<!--                         <div class="col-4">
-                            <div class="card-input input-group">
-                                <div class="input-group-text">Layer</div> 
-                                <select class="form-select" id="hiddenLayer">
-                                    {% for value in num_hidden_layers %}
-                                    <option value={{value}}>{{value}}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div> -->
-<!--                         <div class="col-6">
-                            <div class="card-input input-group">
-                                <div class="input-group-text">Color</div> 
-                                <select class="form-select" id="projectionColor">
-                                    <option selected value='None'>None</option>
-                                </select>
-                            </div>
-                        </div> -->
-<!--                         <div class="col-4">
-                            <div class="card-input input-group">
-                                <div class="input-group-text">Checkpoint</div> 
-                                <select class="form-select" id="checkpointName">
-                                    {% for name in checkpoints %}
-                                    <option value='{{ name }}'>{{ name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div> -->
-
-                        </div>
-                        </div>                     
                         <div class="col-2">
                             <div class="card-input input-group">
                                 <button id="resetZoom" type="button" class="btn btn-primary">Reset Zoom</button>
@@ -179,7 +132,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="row svg-container" id="projectionView"></div>
+                    <div class="row svg-container justify-content-md-center" id="projectionView"></div>
                     
                     <div class="row justify-content-md-center" id="slider-container">
                         <div class="col-6" id="filter">
@@ -194,79 +147,23 @@
                                 </select>
                             </div>
                         </div>
-<!--                         <div class="col-6" id="filters-right" style="display: none;">
-                            <div class="card-input input-group">
-                                <div class="input-group-text">Select Attribute:</div>
-                                <select class="form-select filter-select" id="filter-select-right">
-                                    <option disabled selected value="none"> -- select an attribute -- </option>
-                                </select>
-                                <div class="range-slider" id="range-slider-right" style="display: none;"></div>
-                                <div class="input-group-text range-value" id="range-value-right" style="display: none;">0-0</div>
-                                <select class="categorical-select" id="categorical-select-right" multiple style="display: none;">
-                                </select>
-                            </div>
-                        </div> -->
-<!--                         <div class="col-4">
-                            <div class="card-input input-group">
-                                <div class="input-group-text">Loss Range:</div>
-                                <div id="lossSlider" class="range-slider"></div>
-                                <div class="input-group-text" id="lossValue">0-1</div>
-                            </div>
-                        </div>
-                        <div class="col-3">
-                            <div class="card-input input-group">
-                                <div class="input-group-text">Class</div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input class-check" type="checkbox" id="class0Check" value="0" checked="true">
-                                    <label class="form-check-label" for="inlineCheckbox1">0</label>
-                                </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input class-check" type="checkbox" id="class1Check" value="1" checked="true">
-                                    <label class="form-check-label" for="inlineCheckbox2">1</label>
-                                </div>
-                            </div>
-                        </div> -->
                     </div>
                 </div>
             </div>
-
-            <!-- Content View -->
-<!--             <div class="card col-md-6 pull-right">
+            <div class="card col-3">
                 <div class="card-header">
-                    <h2> Data Table </h2>
+                    <h2>Encoder Attention Heads</h2>
                 </div>
-                <div class="card-block" id="contentView">
-                    {{ table(content, headings) }}
-                </div>
-            </div> -->
+                <div class="row" value="encoder" id="encoderAttentionView"></div>
+            </div>
             <div class="card col-3">
                 <div class="card-header">
                     <h2>Decoder Attention Heads</h2>
                 </div>
-<!--                 <div class="row justify-content-end">
-                    <div class="col-7">
-                        <div class="btn-group card-input" role="group" id="attentionViewSelect">
-                            <div class="input-group-text">Display</div>
-                            <input type="radio" class="btn-check" name="attention-view" value="importance" id="headImportance" autocomplete="off" checked="true" />
-                            <label class="btn btn-outline-primary" for="headImportance">Head Importance</label>
-
-                            <input type="radio" class="btn-check" name="attention-view" value="pattern" id="attentionPattern" autocomplete="off"/>
-                            <label class="btn btn-outline-primary" for="attentionPattern">Attention Pattern</label>
-                        </div>
-                    </div>
-                    <div class="col-5">
-                        <div class="btn-group card-input" role="group" id="attentionScaleSelect">
-                            <div class="input-group-text">Scale</div>
-                            <input type="radio" class="btn-check" name="attention-scale" value="aggregate" id="aggregateAttention" autocomplete="off" checked="true" />
-                            <label class="btn btn-outline-primary" for="aggregateAttention">Aggregate</label>
-
-                            <input type="radio" class="btn-check" name="attention-scale" value="instance" id="instanceAttention" autocomplete="off" disabled="true" />
-                            <label class="btn btn-outline-primary" for="instanceAttention">Instance</label>
-                        </div>
-                    </div>
-                </div> -->
                 <div class="row" value="decoder" id="decoderAttentionView"></div>
             </div>
+
+
         </div>
 
         
@@ -275,9 +172,9 @@
             
 
             <!-- Instance View -->
-            <div class="card col-9">
+            <div class="card col-12">
                 <div class="card-header">
-                    <h2> Instance Investigator </h2>
+                    <h2> Instance View </h2>
                 </div>
                 <div class="card-block">
                     <div class="row">
@@ -307,14 +204,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-
-
-            <div class="card col-3">
-                <div class="card-header">
-                    <h2>Encoder Attention Heads</h2>
-                </div>
-                <div class="row" value="encoder" id="encoderAttentionView"></div>
             </div>
         </div>
     </div>

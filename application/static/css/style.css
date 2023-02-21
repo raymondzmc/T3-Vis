@@ -92,7 +92,7 @@ a {
 /* Projection View */
 #projectionView {
     display: block;
-
+    margin: auto;
     /* TODO: change to be relative to parent height */
     height: 500px;
 }
@@ -242,7 +242,7 @@ td:nth-child(1) {
 
 .prune-button {
     display: block;
-    visibility: hidden;
+/*    visibility: hidden;*/
 }
 
 .prune-button.hovered, .prune-button.selected {

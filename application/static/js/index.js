@@ -44,6 +44,11 @@ let state = {
   'encoder_importance': null,
   'attributions': null,
 
+
+  'encoder_attention': null,
+  'decoder_attention': null,
+  'cross_attention': null,
+
   // 'instance_importance': null,
   // 'aggregate_pattern': null,
   // 'instance_pattern': null,
@@ -208,7 +213,7 @@ $("#interpretation-select").change(function(){
 
 
 
-const projectionWidth = 900;
+const projectionWidth = 1300;
 const projectionHeight = 500;
 const projectionSVG = d3.select("#projectionView")
   .append('svg')
@@ -244,12 +249,12 @@ const encoderAttentionSVG = d3.select("#encoderAttentionView")
 
 
 
-// const tokenList = d3.select("#instanceView")
+const tokenList = d3.select("#instanceView")
   // .append("ul")
   // .attr("id", "tokens")
   // .attr('class', 'token-container')
   // .attr("width", 1200)
-  // .attr("height", 500);
+  .attr("height", 1400);
 
 
 

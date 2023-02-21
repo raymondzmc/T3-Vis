@@ -238,7 +238,7 @@ def index():
 def check_resource_dir(resource_dir):
     # Check all subdirectories in the "resource_dir" for data files needed for visualization
     sub_dirs = os.listdir(resource_dir)
-
+    # print(sub_dirs)
     required_files = [
         # (File Name, File Information, Required)
         ('aggregate_attn.pt', 'Aggregated Attention Matrices', True),
@@ -340,20 +340,43 @@ def get_data():
             attr_val['median'] = int(np.median(projection_data['continuous'][attr_name]))
             results['continuous'].append(attr_val)
 
+    # Load attention images (stored in backend)
+    # print("got here")
     # aggregate_encoder_attn = torch.load(pjoin(t3_vis.resource_dir, 'aggregate_encoder_attn_img.pt'))
+    # t3_vis.aggregate_encoder_attn = aggregate_encoder_attn
+    # for i in range(len(aggregate_encoder_attn)):
+    #     layer = i // 16
+    #     head = i % 16
+    #     torch.save(np.array(aggregate_encoder_attn[i]['attn'], dtype=np.uint8), pjoin(t3_vis.resource_dir, f'aggregate_encoder_attn_img_{layer}_{head}.pt'))
+
+    # aggregate_decoder_attn = torch.load(pjoin(t3_vis.resource_dir, 'aggregate_decoder_attn_img.pt'))
+    # t3_vis.aggregate_decoder_attn = aggregate_decoder_attn
+    # pdb.set_trace()
+    # for i in range(len(aggregate_decoder_attn)):
+    #     layer = i // 16
+    #     head = i % 16
+    #     torch.save(np.array(aggregate_decoder_attn[i]['attn'], dtype=np.uint8), pjoin(t3_vis.resource_dir, f'aggregate_decoder_attn_img_{layer}_{head}.pt'))
+
+    aggregate_cross_attn = torch.load(pjoin(t3_vis.resource_dir, 'aggregate_cross_attn_img.pt'))
+    t3_vis.aggregate_cross_attn = aggregate_cross_attn
+    for i in range(len(aggregate_cross_attn)):
+        layer = i // 16
+        head = i % 16
+        torch.save(np.array(aggregate_cross_attn[i]['attn'], dtype=np.uint8), pjoin(t3_vis.resource_dir, f'aggregate_cross_attn_img_{layer}_{head}.pt'))
+
     # pdb.set_trace()
     # Do this for now, need to send an image file to be more efficient
     # for i in range(len(aggregate_encoder_attn)):
     #     aggregate_encoder_attn[i]['attn'] = json.dumps(aggregate_encoder_attn[i]['attn'])
 
     # importance = torch.load(pjoin(checkpoint_dir, 'head_importance.pt'))
-    results['decoder_head_importance'] = np.random.rand(t3_vis.model.config.num_hidden_layers, t3_vis.model.config.num_attention_heads, 2).tolist()
-    results['encoder_head_importance'] = np.random.rand(t3_vis.model.config.num_hidden_layers, t3_vis.model.config.num_attention_heads).tolist() # Deco
-    # decoder_head_importance = torch.load(pjoin(t3_vis.resource_dir, 'decoder_head_importance.pt'))
-    # decoder_head_importance[:, :, 0] = normalize(decoder_head_importance[:, :, 0])
-    # decoder_head_importance[:, :, 1] = normalize(decoder_head_importance[:, :, 1])
-    # results['decoder_head_importance'] = normalize(decoder_head_importance).tolist()
-    # results['encoder_head_importance'] = normalize(torch.load(pjoin(t3_vis.resource_dir, 'encoder_head_importance.pt'))).tolist()
+    # results['decoder_head_importance'] = np.random.rand(t3_vis.model.config.num_hidden_layers, t3_vis.model.config.num_attention_heads, 2).tolist()
+    # results['encoder_head_importance'] = np.random.rand(t3_vis.model.config.num_hidden_layers, t3_vis.model.config.num_attention_heads).tolist() # Deco
+    decoder_head_importance = torch.load(pjoin(t3_vis.resource_dir, 'decoder_head_importance.pt'))
+    decoder_head_importance[:, :, 0] = normalize(decoder_head_importance[:, :, 0])
+    decoder_head_importance[:, :, 1] = normalize(decoder_head_importance[:, :, 1])
+    results['decoder_head_importance'] = normalize(decoder_head_importance).tolist()
+    results['encoder_head_importance'] = normalize(torch.load(pjoin(t3_vis.resource_dir, 'encoder_head_importance.pt'))).tolist()
     # results['aggregate_attn'] = aggregate_encoder_attn
 
     return flask.jsonify(results)
@@ -383,11 +406,38 @@ def get_attentions():
     layer = int(request['layer']) - 1
     head = int(request['head']) - 1
 
+    
     if (attention_type == 'encoder' and t3_vis.encoder_attentions != None) or \
        (attention_type == 'decoder' and t3_vis.decoder_attentions != None):
         results = t3_vis.get_attentions(attention_type, layer, head)
     else:
         results = {}
+
+    return flask.jsonify(results)
+
+
+@app.route('/api/agg_attentions', methods=['POST'])
+def get_aggregate_attentions():
+    request = flask.request.json
+
+    attention_type = request['attention_type']
+    layer = int(request['layer']) - 1
+    head = int(request['head']) - 1
+    print(attention_type, layer, head)
+
+    results = {}
+    if attention_type == 'encoder':
+        aggregate_encoder_attn = torch.load(pjoin(t3_vis.resource_dir, f'aggregate_encoder_attn_img_{layer}_{head}.pt'))
+        results['attn'] = aggregate_encoder_attn.tolist()
+    elif attention_type == 'decoder':
+        aggregate_decoder_attn = torch.load(pjoin(t3_vis.resource_dir, f'aggregate_decoder_attn_img_{layer}_{head}.pt'))
+        aggregate_cross_attn = torch.load(pjoin(t3_vis.resource_dir, f'aggregate_cross_attn_img_{layer}_{head}.pt'))
+        results['attn'] = [aggregate_decoder_attn.tolist(), aggregate_cross_attn.tolist()]
+    else:
+        raise NotImplementedError("Attention Type Not Supported!")
+
+    results['input_len'] = 512
+    results['output_len'] = 511
 
     return flask.jsonify(results)
 

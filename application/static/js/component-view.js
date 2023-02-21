@@ -50,6 +50,12 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
 
   // Axis
   svg.selectAll('g').remove()
+  let attnPattern = svg.append('g')
+    .attr('id', `${headType}-attn-pattern`);
+
+  svg = svg.append('g')
+    .attr('id', `${headType}-heatmap`);
+
 
   svg.append('g')
     .attr('class', 'x-axis')
@@ -112,6 +118,31 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
       d3.select(this).select('.prune-button').classed('selected', true);
       svg.select(`.x-axis > .tick.head-${head}`).classed('selected', true);
       svg.select(`.y-axis > .tick.layer-${layer}`).classed('selected', true);
+
+      // Visualize dataset aggregate attentions for the selected head 
+      const agg_attn_query = d3.json('../api/agg_attentions', {
+        method: "POST",
+        body: JSON.stringify({
+          'attention_type': headType,
+          'layer': layer,
+          'head': head,
+        }),
+        headers: {
+          "Content-type": "application/json; charset=UTF-8"
+        }
+      })
+      agg_attn_query.then(response => {
+        console.log(response['attn'])
+        d3.select(`#${headType}-heatmap`).style("visibility", 'hidden');
+
+        if (headType === 'encoder'){
+          drawImage(response);
+        } else {
+          drawImage2(response);
+        }
+
+      })
+
 
       // Render the token-level heatmap if "attention" is selected
       if (state.selectedExample !== null) {
@@ -242,20 +273,35 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
 
   // console.log(testAttention);
   const drawImage = async (attn) => {
-    let layer = attn.layer + 1;
-    let head = attn.head + 1;
-    let cell = svg.select(`.row.row-${layer}`).select(`.cell.col-${head}`);
+    attn = attn.attn;
 
+    // if (attentionType === 'encoder'){
+      
+    // } else if (attentionType === 'decoder'){
+    //   decoder_attn = attn.attn[0]
+    //   cross_attn = attn.attn[1];
+    // }
+
+    // let layer = attn.layer + 1;
+    // let head = attn.head + 1;
+    // let cell = svg.select(`.row.row-${layer}`).select(`.cell.col-${head}`);
     let canvas;
-    let width = xScale.bandwidth();
-    let height = yScale.bandwidth()
 
-    if (cell.select('canvas').size() === 0) {
-      let foreignObject = cell.append('foreignObject')
+
+    // let width = innerWidth;
+    // let height = innerHeight;
+
+    // let attn_len = parseInt(Math.sqrt(attn.length));
+
+    let attn_len = (attn.length / 4)**(1/2)
+    // console.log(attn_len, typeof(attn_len))
+
+    if (attnPattern.select('canvas').size() === 0) {
+      let foreignObject = attnPattern.append('foreignObject')
         .attr('width', width)
         .attr('height', height)
         .attr('class', 'attn-pattern')
-        .attr('visibility', (state.attentionView === 'pattern')? 'visible' : 'hidden');
+        .attr('visibility', 'visible');
 
       let foBody = foreignObject.append('xhtml:body')
         .attr('width', width)
@@ -267,7 +313,7 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
         .attr('height', height)
         .style('border', '0.1px solid black');
     } else {
-      canvas = cell.select('canvas');
+      canvas = attnPattern.select('canvas');
     }
     // console.log();
     // if (cell.select('foreignObject').length())
@@ -283,12 +329,13 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
     // let context = canvas.node().getContext('2d');
 
     let imageData = new Uint8ClampedArray;
-    imageData = Uint8ClampedArray.from(attn.attn);
+    imageData = Uint8ClampedArray.from(attn);
+    console.log(imageData);
     let image = context.createImageData(attn_len, attn_len);
     image.data.set(imageData);
     let bitmapOptions = {
-      'resizeWidth': Math.round(xScale.bandwidth()),
-      'resizeHeight': Math.round(yScale.bandwidth()),
+      'resizeWidth': Math.round(width),
+      'resizeHeight': Math.round(height),
     }
 
     let resizedImage = await window.createImageBitmap(image, 0, 0, image.width, image.height, bitmapOptions);
@@ -296,10 +343,148 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
     context.clearRect(0, 0, height, height);
     context.drawImage(resizedImage, 0, 0);
 
+    attnPattern.append('text')
+      .attr('class', 'fas prune-button fa-4x')
+      .text('\uf057')
+      .attr('x', marginX / 2 + innerWidth)
+      .attr('y',  3 * marginY)
+      .raise()
+      .on('click', function(){
+        attnPattern.selectAll('*').remove();
+        d3.select(`#${headType}-heatmap`).style("visibility", 'visible');
+      });
+
+    return state;
+  }
+
+
+  const drawImage2 = async (attn) => {
+
+    let decoder_attn = attn.attn[0];
+    let cross_attn = attn.attn[1];
+    let inputLen = Math.round(attn.input_len);
+    let outputLen = Math.round(attn.output_len);
+
+    // let decoderAttnGroup = d3.select(`#${headType}-heatmap`).append('g');
+    // let crossAttnGroup = d3.select(`#${headType}-heatmap`).append('g');
+    //   .attr('transform', `translate(0, ${height})`);
+
+
+
+    let crossAttnHeight, crossAttnWidth, decoderAttnWidth, decoderAttnHeight;
+
+    crossAttnHeight = height / 2;
+    crossAttnWidth = inputLen / outputLen * crossAttnHeight;
+    decoderAttnWidth = crossAttnWidth;
+    decoderAttnHeight = decoderAttnWidth;
+
+    let crossAttnMargin = (width - crossAttnWidth) / 2;
+    let decoderAttnMargin = (width - decoderAttnWidth) / 2;
+    console.log(crossAttnMargin, decoderAttnMargin);
+    // if (outputLen >= inputLen){
+      
+    // } else {
+    //   crossAttnWidth = width;
+    //   crossAttnHeight = outputLen / inputLen * (height  / 2);
+    //   decoderAttnWidth = crossAttnWidth;
+    //   decoderAttnHeight = decoderAttnWidth;
+    // }
+
+    // let layer = attn.layer + 1;
+    // let head = attn.head + 1;
+    // let cell = svg.select(`.row.row-${layer}`).select(`.cell.col-${head}`);
+    let decoderCanvas, crossCanvas;
+
+
+    if (attnPattern.select('canvas').size() === 0) {
+      let foreignObject = attnPattern.append('foreignObject')
+        .attr('width', width)
+        .attr('height', height)
+        .attr('class', 'attn-pattern')
+        .attr('visibility', 'visible');
+
+      let foBody = foreignObject.append('xhtml:body')
+        .attr('width', width)
+        .attr('height', height)
+        .style('background-color', 'none');
+
+      crossCanvas = foBody.append('canvas')
+        .attr('width', width)
+        .attr('height', height / 2)
+        .style('border', '0.1px solid black')
+        .attr('id', 'cross-attn-canvas');
+      decoderCanvas = foBody.append('canvas')
+        .attr('width', width)
+        .attr('height', height / 2)
+        .style('border', '0.1px solid black')
+        .attr('id', 'decoder-attn-canvas');
+    } else {
+      decoderCanvas = attnPattern.select('#decoder-attn-canvas');
+      crossCanvas = attnPattern.select('#cross-attn-canvas');
+    }
+
+
+
+    // console.log();
+    // if (cell.select('foreignObject').length())
+
+    
+        // .append("xhtml:body");
+
+
+    // let layer = Math.floor(idx / 12);
+    // let head = idx % 12;
+
+    // let context = canvas.node().getContext('2d');
+    let context, imageData, image, bitmapOptions, resizedImage;
+
+    // Decoder attention heatmap
+    context = decoderCanvas.node().getContext('2d');
+    imageData = new Uint8ClampedArray;
+    imageData = Uint8ClampedArray.from(decoder_attn);
+    image = context.createImageData(outputLen, outputLen);
+    image.data.set(imageData);
+    bitmapOptions = {
+      'resizeWidth': Math.round(decoderAttnWidth),
+      'resizeHeight': Math.round(decoderAttnHeight),
+    }
+    resizedImage = await window.createImageBitmap(image, 0, 0, image.width, image.height, bitmapOptions);
+    context.clearRect(0, 0, width, height / 2);
+    context.drawImage(resizedImage, decoderAttnMargin, 0);
+
+    // Cross attention heatmap
+    context = crossCanvas.node().getContext('2d');
+    imageData = new Uint8ClampedArray;
+    imageData = Uint8ClampedArray.from(cross_attn);
+    image = context.createImageData(outputLen, inputLen);
+    image.data.set(imageData);
+    bitmapOptions = {
+      'resizeWidth': Math.round(crossAttnWidth),
+      'resizeHeight': Math.round(crossAttnHeight),
+    }
+    resizedImage = await window.createImageBitmap(image, 0, 0, image.width, image.height, bitmapOptions);
+    context.clearRect(0, 0, width, height / 2);
+    context.drawImage(resizedImage, crossAttnMargin, 0);
+
+
+
+    attnPattern.append('text')
+      .attr('class', 'fas prune-button fa-4x')
+      .text('\uf057')
+      .attr('x', marginX / 2 + innerWidth)
+      .attr('y',  3 * marginY)
+      .raise()
+      .on('click', function(){
+        attnPattern.selectAll('*').remove();
+        d3.select(`#${headType}-heatmap`).style("visibility", 'visible');
+      });
+
+    return state;
+  }
+
     // canvas.node().addEventListener('click', function(event){
     //   console.log(event)
     // }, false);
-  }
 
   // // let canvas = d3.select('#attentionView').append('canvas')
   // //   .attr("id", "attention-canvas")
