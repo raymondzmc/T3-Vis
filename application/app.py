@@ -38,6 +38,7 @@ class T3_Visualization(object):
             self.device = 'cuda' if torch.cuda.is_available() and args.device else 'cpu'
         else:
             self.device = args.device
+        print(self.device)
 
         self.resource_dir = args.resource_dir
         self.checkpoint_dirs = [subdir for subdir in os.listdir(self.resource_dir) if
@@ -45,6 +46,8 @@ class T3_Visualization(object):
         self.curr_checkpoint_dir = None
 
         self.filter_paddings = args.filter_paddings
+
+        self.model_type = args.model_type
 
         # TO DO: Set the pretrained model as an attribute of the model to get called
 
@@ -112,9 +115,6 @@ class T3_Visualization(object):
         # register_hooks(self.model)
         example = self.dataset[idx]
 
-        for col in self.dataset.input_columns:
-            example[col] = torch.tensor(example[col])
-
         # for col in self.dataset.target_columns:
         #     example[col] = torch.tensor(example[col])
 
@@ -126,10 +126,6 @@ class T3_Visualization(object):
             for input_key in self.dataset.input_columns:
                 model_input[input_key] = model_input[input_key][:, :input_len].to(self.device)
 
-        model_input['max_length'] = 512
-        model_input['return_dict_in_generate'] = True
-        model_input['output_attentions'] = True
-        model_input['output_scores'] = True
         # print(model_input['input_ids'].shape)
         # results['decoder_projections'] = {}
         # results['decoder_projections']['x'] = np.array(self.decoder_projections[idx])[:, 0].tolist()
@@ -138,8 +134,18 @@ class T3_Visualization(object):
 
         self.model.eval()
         with torch.no_grad():
-            output = self.model.generate(**model_input)
+
+            if self.model_type == 'encoder-decoder':
+                model_input['max_length'] = 512
+                model_input['return_dict_in_generate'] = True
+                model_input['output_attentions'] = True
+                model_input['output_scores'] = True
+                output = self.model.generate(**model_input)
+            else:
+                model_input['output_attentions'] = True
+                output = self.model(**model_input)
         
+        pdb.set_trace()
 
         
         # output_ids = output['sequences']
@@ -153,13 +159,14 @@ class T3_Visualization(object):
         # results['attn'] = format_attention(output['attentions'], self.num_attention_heads, self.pruned_heads)
         # results['attn_pattern'] = format_attention_image(np.array(results['attn']))
         # results['head_importance'] = normalize(get_taylor_importance(self.model)).tolist()
-
-        self.encoder_attentions = (torch.stack(output['encoder_attentions']).squeeze(1) * 100).byte().cpu().tolist()
-        self.cross_attentions = torch.stack(
-            [(torch.stack(a)[:, 0].squeeze(2) * 100).byte().cpu() for a in output['cross_attentions']]
-        ).transpose(0,1).transpose(1, 2).tolist()
-        self.decoder_attentions = [(torch.stack(a)[:, 0].squeeze(2) * 100).byte().cpu().tolist() for a in
-                                   output['decoder_attentions']]
+        if self.model_type == 'encoder-decoder':
+            self.encoder_attentions = (torch.stack(output['encoder_attentions']).squeeze(1) * 100).byte().cpu().tolist()
+            self.cross_attentions = torch.stack(
+                [(torch.stack(a)[:, 0].squeeze(2) * 100).byte().cpu() for a in output['cross_attentions']]
+            ).transpose(0,1).transpose(1, 2).tolist()
+            self.decoder_attentions = [(torch.stack(a)[:, 0].squeeze(2) * 100).byte().cpu().tolist() for a in output['decoder_attentions']]
+        else:
+            self.decoder_attentions = [(torch.stack(a)[:, 0].squeeze(2) * 100).byte().cpu().tolist() for a in output['attentions']]
 
 
         if encoder_head:
@@ -471,6 +478,8 @@ if __name__ == '__main__':
     # This should be based on the number of examples saved
     parser.add_argument("--n_examples", default=10, type=int, help="The maximum number of data examples to visualize")
     parser.add_argument("--device", default=None, type=str)
+
+    parser.add_argument("--model_type", default='decoder', type=str, choices=['decoder', 'encoder-decoder'])
 
     parser.add_argument("--filter_paddings", default=True, type=bool, help="Filter padding tokens for visualization")
     parser.add_argument("--resource_dir", default=pjoin(cwd, 'resources', 'pegasus_xsum'), \

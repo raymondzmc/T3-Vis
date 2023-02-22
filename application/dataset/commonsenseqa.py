@@ -30,7 +30,9 @@ def commonsenseqa_test_set():
     gold_data = torch.load(os.path.join(gold_dir, 'tensorized_inputs.pt'))
     random_data = torch.load(os.path.join(random_dir, 'tensorized_inputs.pt'))
 
-    data = [{gold_data['input_ids'], gold_data['attention_mask'], gold_data['token_type_ids']} for i in range(500)]
+    gold_data = [{'input_ids': gold_data['input_ids'], 'attention_mask': gold_data['attention_mask'], 'token_type_ids': gold_data['token_type_ids']} for i in range(500)]
+    random_data = [{'input_ids': random_data['input_ids'], 'attention_mask': random_data['attention_mask'], 'token_type_ids': random_data['token_type_ids']} for i in range(500)]
+    data = gold_data + random_data
     # # gold_data = [{''}]
     # pdb.set_trace()
     # data = Dataset()
