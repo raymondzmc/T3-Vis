@@ -321,11 +321,11 @@ def get_data():
             attr_val = {}
             attr_val['name'] = attr_name
 
-            if projection_data[attr_name].dtype in non_discrete_types:
-                projection_data[attr_name] = projection_data['discrete'][attr_name].astype(int)
+            if projection_data['discrete'][attr_name].dtype in non_discrete_types:
+                projection_data['discrete'][attr_name] = projection_data['discrete'][attr_name].astype(int)
 
             attr_val['values'] = projection_data['discrete'][attr_name].tolist()
-            attr_val['domain'] = projection_data['discrete'][attr_name].astype(str).unique().tolist()
+            attr_val['domain'] = np.unique(projection_data['discrete'][attr_name].astype(str)).tolist()
             results['discrete'].append(attr_val)
 
     # Process continuous data attributes
@@ -356,13 +356,14 @@ def get_data():
     #     layer = i // 16
     #     head = i % 16
     #     torch.save(np.array(aggregate_decoder_attn[i]['attn'], dtype=np.uint8), pjoin(t3_vis.resource_dir, f'aggregate_decoder_attn_img_{layer}_{head}.pt'))
-
-    aggregate_cross_attn = torch.load(pjoin(t3_vis.resource_dir, 'aggregate_cross_attn_img.pt'))
-    t3_vis.aggregate_cross_attn = aggregate_cross_attn
-    for i in range(len(aggregate_cross_attn)):
-        layer = i // 16
-        head = i % 16
-        torch.save(np.array(aggregate_cross_attn[i]['attn'], dtype=np.uint8), pjoin(t3_vis.resource_dir, f'aggregate_cross_attn_img_{layer}_{head}.pt'))
+    attn_img_path = pjoin(t3_vis.resource_dir, 'aggregate_cross_attn_img.pt')
+    if os.path.exists(attn_img_path):
+        aggregate_cross_attn = torch.load(pjoin(attn_img_path))
+        t3_vis.aggregate_cross_attn = aggregate_cross_attn
+        for i in range(len(aggregate_cross_attn)):
+            layer = i // 16
+            head = i % 16
+            torch.save(np.array(aggregate_cross_attn[i]['attn'], dtype=np.uint8), pjoin(t3_vis.resource_dir, f'aggregate_cross_attn_img_{layer}_{head}.pt'))
 
     # pdb.set_trace()
     # Do this for now, need to send an image file to be more efficient
@@ -373,10 +374,22 @@ def get_data():
     # results['decoder_head_importance'] = np.random.rand(t3_vis.model.config.num_hidden_layers, t3_vis.model.config.num_attention_heads, 2).tolist()
     # results['encoder_head_importance'] = np.random.rand(t3_vis.model.config.num_hidden_layers, t3_vis.model.config.num_attention_heads).tolist() # Deco
     decoder_head_importance = torch.load(pjoin(t3_vis.resource_dir, 'decoder_head_importance.pt'))
-    decoder_head_importance[:, :, 0] = normalize(decoder_head_importance[:, :, 0])
-    decoder_head_importance[:, :, 1] = normalize(decoder_head_importance[:, :, 1])
-    results['decoder_head_importance'] = normalize(decoder_head_importance).tolist()
-    results['encoder_head_importance'] = normalize(torch.load(pjoin(t3_vis.resource_dir, 'encoder_head_importance.pt'))).tolist()
+    decoder_head_importance = torch.rand(36, 20)
+
+    # Decoder-only
+    if len(decoder_head_importance.shape) == 2:
+        decoder_head_importance = normalize(decoder_head_importance)
+    # Encoder-Decoder
+    elif len(decoder_head_importance.shape) == 3:
+        decoder_head_importance[:, :, 0] = normalize(decoder_head_importance[:, :, 0])
+        decoder_head_importance[:, :, 1] = normalize(decoder_head_importance[:, :, 1])
+
+    encoder_head_importance = torch.zeros(36, 20)
+    # encoder_head_importance = normalize(torch.load(pjoin(t3_vis.resource_dir, 'encoder_head_importance.pt')))
+
+
+    results['decoder_head_importance'] = decoder_head_importance.tolist()
+    # results['encoder_head_importance'] = encoder_head_importance.tolist()
     # results['aggregate_attn'] = aggregate_encoder_attn
 
     return flask.jsonify(results)
@@ -465,8 +478,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if not check_resource_dir(args.resource_dir):
-        exit(1)
+    # if not check_resource_dir(args.resource_dir):
+    #     exit(1)
 
     global t3_vis
 

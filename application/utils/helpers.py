@@ -7,11 +7,16 @@ from sklearn.manifold import TSNE
 from sklearn.metrics import pairwise_distances
 
 def normalize(matrix, axis=None):
-    normalized = (matrix - matrix.min(axis=axis)) /\
-                 (matrix.max(axis=axis) - matrix.min(axis=axis))
+
+    if axis == None:
+        normalized = (matrix - matrix.min()) /\
+                     (matrix.max() - matrix.min())
+    else:
+        normalized = (matrix - matrix.min(axis=axis)) /\
+                     (matrix.max(axis=axis) - matrix.min(axis=axis))
     return normalized
 
-def format_attention_image(attention, color='red'):
+def format_attention_image(attention, color='red', output_dir=None):
     formatted_attn = []
     for layer_idx in range(attention.shape[0]):
         for head_idx in range(attention.shape[1]):
@@ -38,8 +43,12 @@ def format_attention_image(attention, color='red'):
                 red = np.zeros_like(alpha) * 255
 
             attn_data = np.dstack([red,green,blue,alpha]).reshape(alpha.shape[0] * 4).astype('uint8')
-            formatted_entry['attn'] = attn_data.tolist()
-            formatted_attn.append(formatted_entry)
+            if output_dir != None:
+                torch.save(attn_data, pjoin(output_dir, f'attn_img_{layer}_{head}.pt'))
+            else:
+                formatted_entry['attn'] = attn_data.tolist()
+                formatted_attn.append(formatted_entry)
+    
     return formatted_attn
 
 def compute_aggregated_attn(model, dataloader, max_input_len, measure='taylor'):

@@ -23,6 +23,11 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
   // let attn_len = (attn_patten[0].attn.length / 4)**(1/2)
   let headType = svg.attr("value");
 
+  let decoderOnly = true;
+  if (decoderOnly) {
+    headType = 'encoder';
+  }
+
   let marginX = 50;
   let marginY = 20;
   let nLayers = data.length;

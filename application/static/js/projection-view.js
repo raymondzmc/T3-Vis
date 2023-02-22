@@ -302,6 +302,7 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
     let colorAttrName = state.projectionColor;
     let colorAttr = null;
     let colorDomain;
+    let colorAttrType = 'discrete'; // Discrete by default
 
     // Discrete attribute
     if (data['discrete'].map(attr => attr.name).includes(colorAttrName)) {
@@ -313,6 +314,7 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
     else if (data['continuous'].map(attr => attr.name).includes(colorAttrName)) {
       colorAttr = data['continuous'].find(attr => attr.name === colorAttrName);
       colorDomain = [colorAttr.min, colorAttr.max];
+      colorAttrType = 'continuous';
     }
 
     // else if (colorAttrName == 'id') {
@@ -351,7 +353,7 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
       if (withinFilterRange && attributeSelected) {
         filteredIDs.push(id);
 
-        // TODO: add color scale for more than two classes
+        
         if (colorAttr !== null) {
           value = +colorAttr.values[i];
 
@@ -362,7 +364,8 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
           value = 0;
         }
 
-        let fillStyle = (colorAttrName === 'id')? d3.interpolateReds(value) : d3.interpolateReds(value); 
+        // TODO: add color scale for discrete attributes with more than 10 classes
+        let fillStyle = (colorAttrType === 'discrete')? d3.schemeSet1[value] : d3.interpolateReds(value); 
 
         if (selectedIdx === id) {
           selectedPoint = [cx, cy, fillStyle];   
@@ -451,12 +454,9 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
     slide: function( event, ui ) {
       $(`#range-value`).html(`${ui.values[0].toFixed(3)}-${ui.values[1].toFixed(3)}`);
 
-      let attrName = $(`#filter-select option:selected`).val();
+      let attrName = $(`#color-select option:selected`).val();
       let attrIndex = state.continuous.findIndex(d => d.name === attrName);
-
       state.continuous[attrIndex].filterRange = ui.values;
-
-
       let filteredIDs = draw(transform);
       // renderTable(filteredIDs);
       // d3.selectAll('.example')
@@ -467,7 +467,7 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
 
   $(`#categorical-select`).off('change');
   $(`#categorical-select`).on('change', function(){
-    let attrName = $(`#filter-select-${loc} option:selected`).val();
+    let attrName = $(`#color-select option:selected`).val();
     let attrIndex = state.discrete.findIndex(d => d.name === attrName);
 
     // There's probably a much cleaner way to do this, look to change later
@@ -503,7 +503,7 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
 
   // $(`${selectName} option:not(:first)`).remove().end();
   $('#color-select option:not(:first)').remove().end();
-
+  state = resetFilters(state);
 
   data['discrete'].forEach(d => {
     d.selected = d.domain;
@@ -525,7 +525,7 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
     $('#color-select').append(new Option(attrName, attrName));
 
   })
-  state = resetFilters(state);
+  
 
   $(`${selectName}`).val(state.projectionColor);
   // console.log($(`${selectName} option[value='${state.projectionColor}']`).length)
@@ -548,7 +548,7 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
     let attribute;
       // For categorical attributes
     if (data.discrete.find(attr => attr.name === selectedValue) !== undefined) {
-      attribute = state.discrete.find(attr => attr.name === selectedValue);
+      attribute = data.discrete.find(attr => attr.name === selectedValue);
         
       $(`#categorical-select option`).remove().end();
 
