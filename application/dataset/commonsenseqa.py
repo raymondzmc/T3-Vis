@@ -30,8 +30,8 @@ def commonsenseqa_test_set():
     gold_data = torch.load(os.path.join(gold_dir, 'tensorized_inputs.pt'))
     random_data = torch.load(os.path.join(random_dir, 'tensorized_inputs.pt'))
 
-    gold_data = [{'input_ids': gold_data['input_ids'], 'attention_mask': gold_data['attention_mask'], 'token_type_ids': gold_data['token_type_ids']} for i in range(500)]
-    random_data = [{'input_ids': random_data['input_ids'], 'attention_mask': random_data['attention_mask'], 'token_type_ids': random_data['token_type_ids']} for i in range(500)]
+    gold_data = [{'labels': gold_data['input_ids'][i], 'input_ids': gold_data['input_ids'][i], 'attention_mask': gold_data['attention_mask'][i], 'token_type_ids': gold_data['token_type_ids'][i]} for i in range(500)]
+    random_data = [{'labels': random_data['input_ids'][i], 'input_ids': random_data['input_ids'][i], 'attention_mask': random_data['attention_mask'][i], 'token_type_ids': random_data['token_type_ids'][i]} for i in range(500)]
     data = gold_data + random_data
     # # gold_data = [{''}]
     # pdb.set_trace()
@@ -52,7 +52,7 @@ def commonsenseqa_test_set():
 
     dataset = Dataset(data)
     # setattr(dataset, 'visualize_columns', visualize_columns)
-    setattr(dataset, 'input_columns', ['input_ids', 'attention_mask', 'token_type_ids'])
+    setattr(dataset, 'input_columns', ['labels', 'input_ids', 'attention_mask', 'token_type_ids'])
     # setattr(dataset, 'target_columns', ['highlights'])
     setattr(dataset, 'max_length', 1024)
     setattr(dataset, 'tokenizer', tokenizer)

@@ -111,7 +111,6 @@ export const renderImportance = (data, attn_patten, svg, width, height, state) =
       let head = d3.select(this).attr('class').match(/(\d+)/)[0];
       let layer = d3.select(this.parentNode).attr('class').match(/(\d+)/)[0];
       state[`${headType}Head`] = [layer, head];
-
       // Unselect previous selections 
       svg.selectAll('.cell > .selected').classed('selected', false);
       svg.selectAll('.x-axis > .tick.selected').classed('selected', false);

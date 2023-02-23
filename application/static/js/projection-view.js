@@ -93,7 +93,7 @@ export const selectExample = (id, state) => {
       state = renderInstanceView(
         response['input_tokens'],
         response['output_tokens'],
-        response['input_saliency'],
+        response['attributions'],
         // response['label'],
         // response['loss'],
         '#input-token-container',
@@ -352,17 +352,21 @@ export const renderProjection = (data, svg, width, height, mode, state) => {
 
       if (withinFilterRange && attributeSelected) {
         filteredIDs.push(id);
-
-        
         if (colorAttr !== null) {
-          value = +colorAttr.values[i];
-
-          if (colorDomain !== null) {
-            value = (value - colorDomain[0]) / (colorDomain[1] - colorDomain[0]);
+          if (colorAttrType === 'continuous') {
+            value = +colorAttr.values[i];
+            if (colorDomain !== null) {
+              value = (value - colorDomain[0]) / (colorDomain[1] - colorDomain[0]);
+            }
+          } else {
+            // console.log(colorAttrType, colorAttr.values[i])
+            value = colorDomain.indexOf(colorAttr.values[i]) 
           }
+
         } else {
           value = 0;
         }
+
 
         // TODO: add color scale for discrete attributes with more than 10 classes
         let fillStyle = (colorAttrType === 'discrete')? d3.schemeSet1[value] : d3.interpolateReds(value); 

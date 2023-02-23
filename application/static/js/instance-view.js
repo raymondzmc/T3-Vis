@@ -48,14 +48,13 @@ export const renderColor = (inputColor, outputColor, selected, state) => {
   })
 }
 
-export const renderInstanceView = (inputTokens, outputTokens, inputSaliency, inputContainer, outputContainer, state) => {
+export const renderInstanceView = (inputTokens, outputTokens, attributions, inputContainer, outputContainer, state) => {
   let inputs = d3.select(inputContainer).selectAll('li.input-token').data(inputTokens);
   let outputs = d3.select(outputContainer).selectAll('li.output-token').data(outputTokens);
   let inputsEnter = inputs.enter().append('li');
   let outputsEnter = outputs.enter().append('li');
   d3.select('#input-container-title').text(`Input Tokens:`);
   d3.select('#output-container-title').text(`Output Tokens:`);
-
   let metadataList = d3.select('#instance-metadata-list');
   
   metadataList.selectAll('li').remove()
@@ -97,11 +96,19 @@ export const renderInstanceView = (inputTokens, outputTokens, inputSaliency, inp
 
   inputsEnter.merge(inputs)
     .on('click', function() {
+      console.log(state.interpretation, state.encoderAttentions)
       if (state.interpretation === 'attention' && state.encoderAttentions != null) {
+
         state.selectedOutput = null;
         state.selectedInput = d3.select(this).attr('id').split('-')[2];
         let colors = state.encoderAttentions[state.selectedInput];
         renderColor(colors, [], 'input', state);
+      } else if (state.interpretation === 'attribution' && state.attributions != null) {
+        state.selectedOutput = null;
+        state.selectedInput = d3.select(this).attr('id').split('-')[2];
+        let colors = state.attributions[state.selectedInput];
+        renderColor(colors, [], 'input', state);
+        // console.log(state.selectedInput)
       }
     });
 

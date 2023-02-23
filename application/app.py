@@ -68,6 +68,11 @@ class T3_Visualization(object):
         self.decoder_attentions = None
         self.cross_attentions = None
 
+        if os.path.exists(pjoin(self.resource_dir, 'input_attributions.pt')):
+            self.input_attributions = torch.load(pjoin(self.resource_dir, 'input_attributions.pt')).float()
+            self.input_attributions[torch.isnan(self.input_attributions)] = 1
+            # self.input_attributions[torch.isneginf(self.input_attributions)] = -65504
+
     def init_model(self, model_name):
         try:
             exec(f"from models import {args.model}")
@@ -110,7 +115,8 @@ class T3_Visualization(object):
         """
         results = {}
 
-        
+        # print(idx)
+        idx = 530
         # self.model.zero_grad()
         # register_hooks(self.model)
         example = self.dataset[idx]
@@ -119,13 +125,14 @@ class T3_Visualization(object):
         #     example[col] = torch.tensor(example[col])
 
         model_input = {k: v for (k, v) in example.items() if k in self.dataset.input_columns}
-        # [example[key] = torch.tensor() for ]
+        input_len = example['attention_mask'].sum().item()
+
         if self.filter_paddings:
-            input_len = example['attention_mask'].sum().item()
-
             for input_key in self.dataset.input_columns:
-                model_input[input_key] = model_input[input_key][:, :input_len].to(self.device)
-
+                if len(model_input[input_key].shape) == 1:
+                    model_input[input_key] = model_input[input_key][:input_len].to(self.device)
+                elif len(model_input[input_key].shape) == 2:
+                    model_input[input_key] = model_input[input_key][:, :input_len].to(self.device)
         # print(model_input['input_ids'].shape)
         # results['decoder_projections'] = {}
         # results['decoder_projections']['x'] = np.array(self.decoder_projections[idx])[:, 0].tolist()
@@ -142,18 +149,19 @@ class T3_Visualization(object):
                 model_input['output_scores'] = True
                 output = self.model.generate(**model_input)
             else:
+                # model_input = {k: v[:ma]}
                 model_input['output_attentions'] = True
                 output = self.model(**model_input)
-        
-        pdb.set_trace()
 
-        
+        if hasattr(output, 'loss'):
+            results['loss'] = output.loss.item() if type(output.loss) == torch.Tensor else output.loss
+        else:
+            results['loss'] = 0
         # output_ids = output['sequences']
         # logits = output['logits']
 
         # output['loss'].backward(retain_graph=True)
         # results['loss'] = output['loss'].item()
-        results['loss'] = 0
         # results['input_saliency'] = input_saliency
         # results['output'] = output['sequences'].squeeze(0).tolist()
         # results['attn'] = format_attention(output['attentions'], self.num_attention_heads, self.pruned_heads)
@@ -166,28 +174,39 @@ class T3_Visualization(object):
             ).transpose(0,1).transpose(1, 2).tolist()
             self.decoder_attentions = [(torch.stack(a)[:, 0].squeeze(2) * 100).byte().cpu().tolist() for a in output['decoder_attentions']]
         else:
-            self.decoder_attentions = [(torch.stack(a)[:, 0].squeeze(2) * 100).byte().cpu().tolist() for a in output['attentions']]
+            self.decoder_attentions = [(a.squeeze() * 100).byte().cpu().tolist() for a in output['attentions']]
 
 
-        if encoder_head:
-            layer, head = int(encoder_head[0]) - 1, int(encoder_head[1]) - 1
-            results['encoder_attentions'] = self.encoder_attentions[layer - 1][head - 1]
+        if self.model_type == 'encoder-decoder':
+            if encoder_head:
+                layer, head = int(encoder_head[0]) - 1, int(encoder_head[1]) - 1
+                results['encoder_attentions'] = self.encoder_attentions[layer - 1][head - 1]
 
-        if decoder_head:
-            layer, head = int(decoder_head[0]) - 1, int(decoder_head[1]) - 1
-            results['cross_attentions'] = self.cross_attentions[layer - 1][head - 1]
-            results['decoder_attentions'] = [a[layer - 1][head - 1] for a in self.decoder_attentions]
+            if decoder_head:
+
+                layer, head = int(decoder_head[0]) - 1, int(decoder_head[1]) - 1
+                if self.model_type == 'encoder-decoder':
+                    results['cross_attentions'] = self.cross_attentions[layer - 1][head - 1]
+                results['decoder_attentions'] = [a[layer - 1][head - 1] for a in self.decoder_attentions]
+        else:
+            if encoder_head:
+                layer, head = int(encoder_head[0]) - 1, int(encoder_head[1]) - 1
+                results['encoder_attentions'] = self.decoder_attentions[layer - 1][head - 1]
 
         # head_importance = get_head_importance_pegasus(self.model)
         # Note: Still work to do in compute_ig_importance_score()
         # head_importance_ig = get_head_importance_pegasus(self.model, 'ig', model_input['input_ids'].squeeze(0))
 
-        results['input_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(example['input_ids'].squeeze(0))
-        results['output_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(output['sequences'].squeeze(0))
+        results['input_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(example['input_ids'].squeeze(0))[:input_len]
+        results['input_tokens'] = [tok.replace('Ġ', '') for tok in results['input_tokens']]
 
-        results['output_tokens'] = [chinese_converter.to_simplified(x) for x in results['output_tokens']]
-
-        output_len = len(results['output_tokens']) - 1
+        if self.model_type == 'encoder-decoder':
+            results['output_tokens'] = self.dataset.tokenizer.convert_ids_to_tokens(output['sequences'].squeeze(0))
+            results['output_tokens'] = [chinese_converter.to_simplified(x) for x in results['output_tokens']]
+            output_len = len(results['output_tokens']) - 1
+        else:
+            results['output_tokens'] = []
+            output_len = input_len
 
         output_projection = {}
         output_projection['ids'] = np.arange(len(self.decoder_projections[idx])).tolist()[:output_len]
@@ -211,22 +230,36 @@ class T3_Visualization(object):
         # input_saliency = compute_input_saliency(self.model, len(example['input_ids']), example['input_ids'],
         #                                         output['sequences'])
 
-        model_input['interpretation'] = True
-        model_input['best_indices'] = output['sequences'][0].tolist()
-        model_input['best_beam_indices'] = output['beam_indices'][0, :-1].tolist()
-        model_input['input_indices'] = model_input['input_ids'][0].tolist()
 
-        results['attributions'] = [{
-            'input': np.random.rand(len(results['input_tokens'])).tolist() if step > 0 else [],
-            'output': np.random.rand(step).tolist(),
-        } for step in range(len(results['output_tokens']))]
+        if self.model_type == 'encoder-decoder':
+            model_input['interpretation'] = True
+            # model_input['best_indices'] = output['sequences'][0].tolist()
+            # model_input['best_beam_indices'] = output['beam_indices'][0, :-1].tolist()
+            # model_input['input_indices'] = model_input['input_ids'][0].tolist()
+            # Dummy values for attribution
+            results['attributions'] = [{
+                'input': np.random.rand(len(results['input_tokens'])).tolist() if step > 0 else [],
+                'output': np.random.rand(step).tolist(),
+            } for step in range(len(results['output_tokens']))]
+            
+            # self.model.train()
+            # output = self.model.generate(**model_input)
+            # results['attributions'] = output.saliency
+            # results['attributions'].insert(0, {'input': [],'output': [],})
+        else:
+            results['attributions']  = self.input_attributions[idx][:input_len, :input_len]
+            for i in range(len( results['attributions'] )):
+                results['attributions'][i][i:] = 0
+                if i > 1:
+                    if not results['attributions'][i][:i].sum().item() == 0:
+                        results['attributions'][i][:i] = normalize(results['attributions'][i][:i]) * 80
+                elif i == 1:
+                    results['attributions'][i][:i] = 1
+            results['attributions'] = results['attributions'].tolist()
+            # [x]
+            # results['attributions'] = normalize(self.input_attributions[idx][:input_len, :input_len] ** 5).tolist()
+
         
-        # self.model.train()
-        # output = self.model.generate(**model_input)
-        # results['attributions'] = output.saliency
-        # results['attributions'].insert(0, {'input': [],'output': [],})
-
-        # Dummy values for attribution
         return results
 
 
@@ -328,11 +361,11 @@ def get_data():
             attr_val = {}
             attr_val['name'] = attr_name
 
-            if projection_data['discrete'][attr_name].dtype in non_discrete_types:
-                projection_data['discrete'][attr_name] = projection_data['discrete'][attr_name].astype(int)
+            if np.array(projection_data['discrete'][attr_name]).dtype in non_discrete_types:
+                projection_data['discrete'][attr_name] = np.array(projection_data['discrete'][attr_name]).astype(int)
 
-            attr_val['values'] = projection_data['discrete'][attr_name].tolist()
-            attr_val['domain'] = np.unique(projection_data['discrete'][attr_name].astype(str)).tolist()
+            attr_val['values'] = np.array(projection_data['discrete'][attr_name]).tolist()
+            attr_val['domain'] = np.unique(np.array(projection_data['discrete'][attr_name]).astype(str)).tolist()
             results['discrete'].append(attr_val)
 
     # Process continuous data attributes
@@ -363,14 +396,14 @@ def get_data():
     #     layer = i // 16
     #     head = i % 16
     #     torch.save(np.array(aggregate_decoder_attn[i]['attn'], dtype=np.uint8), pjoin(t3_vis.resource_dir, f'aggregate_decoder_attn_img_{layer}_{head}.pt'))
-    attn_img_path = pjoin(t3_vis.resource_dir, 'aggregate_cross_attn_img.pt')
-    if os.path.exists(attn_img_path):
-        aggregate_cross_attn = torch.load(pjoin(attn_img_path))
-        t3_vis.aggregate_cross_attn = aggregate_cross_attn
-        for i in range(len(aggregate_cross_attn)):
-            layer = i // 16
-            head = i % 16
-            torch.save(np.array(aggregate_cross_attn[i]['attn'], dtype=np.uint8), pjoin(t3_vis.resource_dir, f'aggregate_cross_attn_img_{layer}_{head}.pt'))
+    # attn_img_path = pjoin(t3_vis.resource_dir, 'aggregate_cross_attn_img.pt')
+    # if os.path.exists(attn_img_path):
+    #     aggregate_cross_attn = torch.load(pjoin(attn_img_path))
+    #     t3_vis.aggregate_cross_attn = aggregate_cross_attn
+    #     for i in range(len(aggregate_cross_attn)):
+    #         layer = i // 16
+    #         head = i % 16
+    #         torch.save(np.array(aggregate_cross_attn[i]['attn'], dtype=np.uint8), pjoin(t3_vis.resource_dir, f'aggregate_cross_attn_img_{layer}_{head}.pt'))
 
     # pdb.set_trace()
     # Do this for now, need to send an image file to be more efficient
@@ -381,7 +414,7 @@ def get_data():
     # results['decoder_head_importance'] = np.random.rand(t3_vis.model.config.num_hidden_layers, t3_vis.model.config.num_attention_heads, 2).tolist()
     # results['encoder_head_importance'] = np.random.rand(t3_vis.model.config.num_hidden_layers, t3_vis.model.config.num_attention_heads).tolist() # Deco
     decoder_head_importance = torch.load(pjoin(t3_vis.resource_dir, 'decoder_head_importance.pt'))
-    decoder_head_importance = torch.rand(36, 20)
+    # decoder_head_importance = torch.rand(36, 20)
 
     # Decoder-only
     if len(decoder_head_importance.shape) == 2:
@@ -446,15 +479,21 @@ def get_aggregate_attentions():
     print(attention_type, layer, head)
 
     results = {}
-    if attention_type == 'encoder':
-        aggregate_encoder_attn = torch.load(pjoin(t3_vis.resource_dir, f'aggregate_encoder_attn_img_{layer}_{head}.pt'))
-        results['attn'] = aggregate_encoder_attn.tolist()
-    elif attention_type == 'decoder':
-        aggregate_decoder_attn = torch.load(pjoin(t3_vis.resource_dir, f'aggregate_decoder_attn_img_{layer}_{head}.pt'))
-        aggregate_cross_attn = torch.load(pjoin(t3_vis.resource_dir, f'aggregate_cross_attn_img_{layer}_{head}.pt'))
-        results['attn'] = [aggregate_decoder_attn.tolist(), aggregate_cross_attn.tolist()]
+
+    if t3_vis.model_type == 'encoder-decoder':
+
+        if attention_type == 'encoder':
+            aggregate_encoder_attn = torch.load(pjoin(t3_vis.resource_dir, f'aggregate_encoder_attn_img_{layer}_{head}.pt'))
+            results['attn'] = aggregate_encoder_attn.tolist()
+        elif attention_type == 'decoder':
+            aggregate_decoder_attn = torch.load(pjoin(t3_vis.resource_dir, f'aggregate_cross_attn_img_{layer}_{head}.pt'))
+            aggregate_cross_attn = torch.load(pjoin(t3_vis.resource_dir, f'aggregate_cross_attn_img_{layer}_{head}.pt'))
+            results['attn'] = [aggregate_decoder_attn.tolist(), aggregate_cross_attn.tolist()]
+        else:
+            raise NotImplementedError("Attention Type Not Supported!")
     else:
-        raise NotImplementedError("Attention Type Not Supported!")
+        aggregate_decoder_attn = torch.load(pjoin(t3_vis.resource_dir, 'decoder_attentions', f'attn_img_{layer}_{head}.pt'))
+        results['attn'] = aggregate_decoder_attn.tolist()
 
     results['input_len'] = 512
     results['output_len'] = 511

@@ -5,6 +5,7 @@ from tqdm import tqdm
 
 from sklearn.manifold import TSNE
 from sklearn.metrics import pairwise_distances
+from os.path import join as pjoin
 
 def normalize(matrix, axis=None):
 
@@ -44,11 +45,11 @@ def format_attention_image(attention, color='red', output_dir=None):
 
             attn_data = np.dstack([red,green,blue,alpha]).reshape(alpha.shape[0] * 4).astype('uint8')
             if output_dir != None:
-                torch.save(attn_data, pjoin(output_dir, f'attn_img_{layer}_{head}.pt'))
+                torch.save(attn_data, pjoin(output_dir, f'attn_img_{layer_idx}_{head_idx}.pt'))
             else:
                 formatted_entry['attn'] = attn_data.tolist()
                 formatted_attn.append(formatted_entry)
-    
+
     return formatted_attn
 
 def compute_aggregated_attn(model, dataloader, max_input_len, measure='taylor'):

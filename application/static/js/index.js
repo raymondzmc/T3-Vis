@@ -288,7 +288,6 @@ const loadData = (state) => {
       return;
     }
 
-    console.log(encoderImportance)
     if (encoderImportance !== undefined) {
       state = renderImportance(encoderImportance, attn_patten, encoderAttentionSVG, 850, 630, state);
     }
